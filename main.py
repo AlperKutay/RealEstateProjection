@@ -154,7 +154,7 @@ def make_plots(config, data, args):
     plt.savefig(plot_filename)
     plt.close()
 
-def generate_random_dollar_values_yearly(initial_rate, years, target_avg_increase_pct):
+def generate_random_values_yearly(initial_rate, years, target_avg_increase_pct):
     target_avg_increase = target_avg_increase_pct / 100
     # np.random.seed(42)  # REMOVE for random results each time
 
@@ -177,7 +177,7 @@ def generate_random_dollar_values_yearly(initial_rate, years, target_avg_increas
 
     return dollar_values, adjusted_yearly_increases
 
-def generate_random_dollar_values_monthly(initial_rate, years, target_avg_increase_pct):
+def generate_random_values_monthly(initial_rate, years, target_avg_increase_pct):
     target_avg_increase = target_avg_increase_pct / 100
     # np.random.seed(42)  # REMOVE for random results each time
 

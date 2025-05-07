@@ -12,7 +12,9 @@ from main import (
     calculate_usd_salaries,
     calculate_total_credit_amount,
     calculate_monthly_payment_tl,
-    make_plots
+    make_plots,
+    generate_random_dollar_values_yearly,
+    generate_random_dollar_values_monthly
 )
 
 # Set page config with sidebar initially collapsed
@@ -64,17 +66,17 @@ col1, col2, col_group = st.columns([1, 1, 4])
 
 with col1:
     st.markdown("### 📊 Basic Parameters")
-    years = st.number_input("Years", min_value=1, max_value=30, value=10)
-    interest_rate = st.number_input("Interest Rate (%)", min_value=0.0, max_value=100.0, value=2.89)
-    start_dollar_tl = st.number_input("Start Dollar/TL Rate", min_value=1.0, value=38.6)
-    dollar_growth_rate = st.number_input("Dollar Growth Rate (%)", min_value=0.0, value=35.0)
+    years = st.number_input("Loan Period (Years)", min_value=1, max_value=30, value=10)
+    interest_rate = st.number_input("Morgage Interest Rate (%)", min_value=0.0, max_value=100.0, value=2.89)
+    start_dollar_tl = st.number_input("Initial Dollar/TL Rate", min_value=1.0, value=38.6)
+    dollar_growth_rate = st.number_input("Dollar Increase Rate Yearly(%)", min_value=0.0, value=35.0)
     
     st.markdown("### 💼 Salary Parameters")
     salary_currency = st.selectbox("Salary Currency", ["EUR", "USD", "TL"], index=0)
+    salary_type = st.selectbox("Salary Type", ["Yearly", "Monthly"], index=0)
     start_salary_base = st.number_input("Start Salary", min_value=0, value=32000)
-    salary_growth = st.number_input("Salary Growth Rate (%)", min_value=0.0, value=6.0)
+    salary_growth = st.number_input("Salary Increase Rate (%)", min_value=0.0, value=6.0)
     euro_dollar_rate = st.number_input("Euro/Dollar Rate", min_value=0.0, value=1.15)
-pass
 
 with col2:
     st.markdown("### 🏠 Property Parameters")
@@ -82,24 +84,24 @@ with col2:
     value_of_house_tl = st.number_input("Value of House (TL)", min_value=0, value=2500000)
     price_rent_ratio = st.number_input("Price/Rent Ratio (Years)", min_value=1, value=15)
     
-    with st.expander("📈 Advanced Inflation Parameters"):
+    with st.expander("📈 Advanced Parameters"):
         usa_inflation = st.number_input("USA Inflation Rate (%)", min_value=0.0, value=3.0)
         turkey_inflation = st.number_input("Turkey Inflation Rate (%)", min_value=0.0, value=35.0)
         include_inflation = st.checkbox("Include Inflation in Calculations", value=False)
+        generate_random_dollar_values = st.checkbox("Generate Random Dollar Values", value=False)
     
     st.markdown("### 📊 Plot Options")
     use_months = st.checkbox("Use Monthly View", value=False)
     save_plots = st.checkbox("Save Plots to File", value=False)
     
     st.markdown("### 📌 Select Plots")
-    plot_annual_payment = st.checkbox("Annual Payment (USD)", value=False)
-    plot_dollar_rates = st.checkbox("Dollar Rates", value=False)
-    plot_dollar_salaries = st.checkbox("Dollar Salaries", value=False)
+    plot_annual_payment = st.checkbox("Payment (USD)", value=False)
+    plot_dollar_rates = st.checkbox("USD/TL Rates", value=False)
+    plot_dollar_salaries = st.checkbox("Salary (USD)", value=False)
     plot_cumulative_payment = st.checkbox("Cumulative Payment (USD)", value=False)
     plot_total_credit = st.checkbox("Total Credit Amount", value=False)
     plot_value_of_house = st.checkbox("Value of House (USD)", value=False)
-    plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
-pass
+    #plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
 
 # Generate button with spinner
 if st.button("🚀 Generate Plot"):
@@ -110,14 +112,14 @@ if st.button("🚀 Generate Plot"):
                 interest_rate,
                 years
             )
-
+            start_salary_base = start_salary_base if salary_type == "Yearly" else start_salary_base * 12
             config = Config(
                 years=years,
                 monthly_tl_payment=monthly_tl_payment,
                 annual_tl_payment=monthly_tl_payment * 12,
                 start_dollar_tl=start_dollar_tl,
                 dollar_growth_rate_annual=dollar_growth_rate / 100,
-                dollar_growth_rate_monthly=dollar_growth_rate / 1200,
+                dollar_growth_rate_monthly=(((dollar_growth_rate / 100) + 1) ** (1/12)) - 1,
                 start_salary_base=start_salary_base,
                 salary_growth_annual=salary_growth / 100,
                 euro_dollar_rate=euro_dollar_rate,
@@ -130,15 +132,30 @@ if st.button("🚀 Generate Plot"):
                 turkey_inflation_rate=turkey_inflation / 100,
                 price_rent_ratio_yearly=price_rent_ratio,
                 salary_currency=salary_currency,
-                include_inflation=include_inflation
+                include_inflation=include_inflation,
             )
+            if generate_random_dollar_values and not use_months:
+                dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_dollar_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate)
+                dollar_rates_monthly = None
+            elif generate_random_dollar_values and use_months:
+                annual_payment_usd = None
+                dollar_rates_annual, adjusted_yearly_dollar_increases, dollar_rates_monthly = generate_random_dollar_values_monthly(config.start_dollar_tl, config.years, dollar_growth_rate)
+            else:
+                dollar_rates_annual = calculate_dollar_rates_annual(config.start_dollar_tl, config.dollar_growth_rate_annual, config.years)
+                dollar_rates_monthly = calculate_dollar_rates_monthly(config.start_dollar_tl, config.dollar_growth_rate_monthly, config.years)
 
-            dollar_rates_annual = calculate_dollar_rates_annual(config.start_dollar_tl, config.dollar_growth_rate_annual, config.years)
-            dollar_rates_monthly = calculate_dollar_rates_monthly(config.start_dollar_tl, config.dollar_growth_rate_monthly, config.years)
-            annual_payment_usd = calculate_annual_payment_usd(config.annual_tl_payment, dollar_rates_annual)
-            monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
-            cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
-            cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
+            
+            if use_months:
+                monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
+                cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
+                annual_payment_usd = None
+                cumulative_payment_usd_annual = None
+            else:
+                annual_payment_usd = calculate_annual_payment_usd(config.annual_tl_payment, dollar_rates_annual)
+                cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
+                cumulative_payment_usd_monthly = None
+                monthly_payment_usd = None
+
             dollar_salaries = calculate_usd_salaries(
                 config.start_salary_base,
                 config.salary_growth_annual,
@@ -166,7 +183,7 @@ if st.button("🚀 Generate Plot"):
                     self.plot_cumulative_payment_usd = plot_cumulative_payment
                     self.plot_total_credit_amount_with_initial_noncredit_amount = plot_total_credit
                     self.plot_value_of_house_usd = plot_value_of_house
-                    self.plot_monthly_payment_usd = plot_monthly_payment
+                    self.plot_monthly_payment_usd = 0 #plot_monthly_payment
                     self.use_months = use_months
 
             args = Args()

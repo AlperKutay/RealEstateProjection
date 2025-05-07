@@ -32,13 +32,13 @@ class Config:
 # === Hesaplamalar ===
 def calculate_dollar_rates_annual(start_dollar_tl, dollar_growth_rate_annual, years):
     rates = [start_dollar_tl]
-    for _ in range(1, years):
+    for _ in range(0, years):
         rates.append(rates[-1] * (1 + dollar_growth_rate_annual))
     return np.array(rates)
 
 def calculate_dollar_rates_monthly(start_dollar_tl, dollar_growth_rate_monthly, years):
     rates = [start_dollar_tl]
-    for _ in range(1, years * 12):
+    for _ in range(0, years * 12):
         rates.append(rates[-1] * (1 + dollar_growth_rate_monthly))
     return np.array(rates)
 
@@ -53,7 +53,7 @@ def calculate_cumulative_payment_usd(payment_usd):
 
 def calculate_usd_salaries(start_salary, salary_growth, years, euro_dollar_rate, salary_currency,dollar_rates):
     salaries = [start_salary]
-    for _ in range(1, years):
+    for _ in range(0, years):
         salaries.append(salaries[-1] * (1 + salary_growth))
     if salary_currency == 'EUR':
         return np.array(salaries) * euro_dollar_rate * 12
@@ -84,39 +84,39 @@ def make_plots(config, data, args):
     )
     if args.plot_annual_payment_usd:
         y_data = data['monthly_payment_usd'] if use_months else data['annual_payment_usd']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if use_months else 'Yıllık Ödeme (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if use_months else 'Yıllık Ödeme (USD)')
         title += 'Aylık Ödeme (USD) ' if use_months else 'Yıllık Ödeme (USD) '
         saving_title += 'monthly_' if use_months else 'annual_'
-        info_text += f"Aylık Ödeme (USD): {data['monthly_payment_usd']:.2f} USD\n" if use_months else f"Yıllık Ödeme (USD): {data['annual_payment_usd']:.2f} USD\n"
+        info_text += f"Aylık Ödeme (USD): {y_data[0]:.2f} USD\n" if use_months else f"Yıllık Ödeme (USD): {y_data[0]:.2f} USD\n"
 
     if args.plot_dollar_rates:
         y_data = data['dollar_rates_monthly'] if use_months else data['dollar_rates_annual']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)')
         title += 'Dolar Kuru (TL) '
         saving_title += 'dollar_'
 
     if args.plot_dollar_salaries and not use_months:
-        plt.plot(range(1, years + 1), data['dollar_salaries'], marker='o', label='Yıllık Maaş (USD)')
+        plt.plot(range(0, years + 1), data['dollar_salaries'], marker='o', label='Yıllık Maaş (USD)')
         title += 'Yıllık Maaş (USD) '
         saving_title += 'salary_'
         info_text += f"Euro/$ Kuru: {config.euro_dollar_rate}\n"
 
     if args.plot_cumulative_payment_usd:
         y_data = data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Kümülatif Ödeme (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Kümülatif Ödeme (USD)')
         title += 'Kümülatif Ödeme (USD) '
         saving_title += 'cumulative_'
         info_text += f"Aylık Kredi Ödemesi (TL): {config.monthly_tl_payment} TL\n"
 
     if args.plot_total_credit_amount_with_initial_noncredit_amount:
         y_data = calculate_total_credit_amount(data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual'], config.initial_noncredit_amount_usd)
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)')
         title += 'Kredi Miktarı (USD) '
         saving_title += 'credit_'
         info_text += f"Toplam Kredi Miktarı (USD): {y_data[-1]:.2f} USD\n"
     
     if args.plot_value_of_house_usd:
-        plt.plot(1, config.value_of_house_usd, marker='o', label='Ev Değeri (USD)')
+        plt.plot(0, config.value_of_house_usd, marker='o', label='Ev Değeri (USD)')
         title += 'Ev Değeri (USD) '
         saving_title += 'house_'
         info_text += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:.2f} USD\n"
@@ -124,7 +124,7 @@ def make_plots(config, data, args):
     
     if args.plot_monthly_payment_usd:
         y_data = data['monthly_payment_usd']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)')
         title += 'Aylık Ödeme (USD) '
         saving_title += 'monthly_'
 
@@ -154,6 +154,63 @@ def make_plots(config, data, args):
     plt.savefig(plot_filename)
     plt.close()
 
+def generate_random_dollar_values_yearly(initial_rate, years, target_avg_increase_pct):
+    target_avg_increase = target_avg_increase_pct / 100
+    # np.random.seed(42)  # REMOVE for random results each time
+
+    # Step 1: Generate random yearly increases around the target
+    yearly_random_increases = np.random.uniform(
+        target_avg_increase * 0.7,
+        target_avg_increase * 1.3,
+        years
+    )
+
+    # Step 2: Scale to match exact target average
+    scaling_factor = target_avg_increase / np.mean(yearly_random_increases)
+    adjusted_yearly_increases = yearly_random_increases * scaling_factor
+
+    # Step 3: Calculate yearly dollar values
+    dollar_values = [initial_rate]
+    for rate in adjusted_yearly_increases:
+        new_value = dollar_values[-1] * (1 + rate)
+        dollar_values.append(new_value)
+
+    return dollar_values, adjusted_yearly_increases
+
+def generate_random_dollar_values_monthly(initial_rate, years, target_avg_increase_pct):
+    target_avg_increase = target_avg_increase_pct / 100
+    # np.random.seed(42)  # REMOVE for random results each time
+
+    yearly_random_increases = np.random.uniform(
+        target_avg_increase * 0.7,
+        target_avg_increase * 1.3,
+        years
+    )
+    scaling_factor = target_avg_increase / np.mean(yearly_random_increases)
+    adjusted_yearly_increases = yearly_random_increases * scaling_factor
+
+    monthly_dollar_values = [initial_rate]
+    yearly_dollar_values = [initial_rate]
+
+    for year_idx in range(years):
+        year_start_value = yearly_dollar_values[-1]
+        year_multiplier = 1 + adjusted_yearly_increases[year_idx]
+
+        # Step 1: Generate random monthly multipliers around neutral (1.0)
+        raw_monthly_multipliers = np.random.uniform(0.98, 1.05, 12)
+
+        # Step 2: Normalize so their product equals yearly multiplier
+        product_raw = np.prod(raw_monthly_multipliers)
+        normalized_monthly_multipliers = raw_monthly_multipliers * (year_multiplier ** (1/12)) / (product_raw ** (1/12))
+
+        # Step 3: Apply month by month
+        for m in range(12):
+            new_value = monthly_dollar_values[-1] * normalized_monthly_multipliers[m]
+            monthly_dollar_values.append(new_value)
+
+        yearly_dollar_values.append(monthly_dollar_values[-1])
+
+    return yearly_dollar_values, adjusted_yearly_increases, monthly_dollar_values
 
 # === Main ===
 if __name__ == "__main__":
@@ -192,7 +249,7 @@ if __name__ == "__main__":
         annual_tl_payment=monthly_tl_payment * 12,
         start_dollar_tl=args.start_dollar_tl,
         dollar_growth_rate_annual=args.dollar_growth_rate_annual,
-        dollar_growth_rate_monthly=args.dollar_growth_rate_annual / 14,
+        dollar_growth_rate_monthly=((args.dollar_growth_rate_annual / 100) ** (1/12)),
         start_salary_base=args.start_salary_base,
         salary_growth_annual=args.salary_growth_annual,
         euro_dollar_rate=args.euro_dollar_rate,

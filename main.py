@@ -71,7 +71,7 @@ def calculate_monthly_payment_tl(total_credit_amount, interest_rate_of_credit, y
 
 
 def make_plots(config, data, args):
-    plt.figure(figsize=(15 , 10))
+    plt.figure(figsize=(12 , 6))
     years = config.years
     use_months = args.use_months
     dollar_growth_rate = config.dollar_growth_rate_annual if not use_months else config.dollar_growth_rate_monthly
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         annual_tl_payment=monthly_tl_payment * 12,
         start_dollar_tl=args.start_dollar_tl,
         dollar_growth_rate_annual=args.dollar_growth_rate_annual,
-        dollar_growth_rate_monthly=args.dollar_growth_rate_annual / 12,
+        dollar_growth_rate_monthly=args.dollar_growth_rate_annual / 14,
         start_salary_base=args.start_salary_base,
         salary_growth_annual=args.salary_growth_annual,
         euro_dollar_rate=args.euro_dollar_rate,

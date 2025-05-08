@@ -28,6 +28,8 @@ class Config:
     price_rent_ratio_yearly: int
     salary_currency: str
     include_inflation: bool
+    months_to_increase: int
+    language: str
 
 # === Hesaplamalar ===
 def calculate_dollar_rates_annual(start_dollar_tl, dollar_growth_rate_annual, years):
@@ -87,67 +89,83 @@ def calculate_monthly_payment_tl(total_credit_amount, interest_rate_of_credit, y
 
 
 def make_plots(config, data, args):
-    plt.figure(figsize=(12 , 6))
+    plt.figure(figsize=(12 , 7))
     years = config.years
     use_months = args.use_months
     dollar_growth_rate = config.dollar_growth_rate_annual if not use_months else config.dollar_growth_rate_monthly
     total_steps = years * 12 if use_months else years
-    title, saving_title = '', ''
-    info_text = (
+    title_tr, title_en, saving_title = '', '', ''
+    language = config.language
+    info_text_tr = (
         f"VADE: {config.years}\n"
-        f"Başlangıç Dolar Kuru: {config.start_dollar_tl}\n"
-        f"Dolar Kuru Artış Oranı: %{dollar_growth_rate*100:.2f}\n"
+        f"Evin Fiyatı: {config.value_of_house_usd:.2f} USD\n"
+    )
+    info_text_en = (
+        f"VADE: {config.years}\n"
+        f"House Price: {config.value_of_house_usd:.2f} USD\n"
     )
     if args.plot_annual_payment_usd:
         y_data = data['monthly_payment_usd'] if use_months else data['annual_payment_usd']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if use_months else 'Yıllık Ödeme (USD)')
-        title += 'Aylık Ödeme (USD) ' if use_months else 'Yıllık Ödeme (USD) '
+        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if language == 'tr' else 'Monthly Payment (USD)')
+        title_tr += 'Aylık Ödeme (USD) ' if language == 'tr' else 'Monthly Payment (USD) '
+        title_en += 'Monthly Payment (USD) ' if language == 'en' else 'Annual Payment (USD) '
         saving_title += 'monthly_' if use_months else 'annual_'
-        info_text += f"Aylık Ödeme (USD): {y_data[0]:.2f} USD\n" if use_months else f"Yıllık Ödeme (USD): {y_data[0]:.2f} USD\n"
+        info_text_tr += f"Aylık Ödeme (USD): {y_data[0]:.2f} USD\n" if language == 'tr' else f"Yıllık Ödeme (USD): {y_data[0]:.2f} USD\n"
+        info_text_en += f"Monthly Payment (USD): {y_data[0]:.2f} USD\n" if language == 'en' else f"Annual Payment (USD): {y_data[0]:.2f} USD\n"
 
     if args.plot_dollar_rates:
         y_data = data['dollar_rates_monthly'] if use_months else data['dollar_rates_annual']
         plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)')
-        title += 'Dolar Kuru (TL) '
+        title_tr += 'Dolar Kuru (TL) '
+        title_en += 'Dollar Rate (TL) '
         saving_title += 'dollar_'
 
     if args.plot_dollar_salaries:
         y_data = data['dollar_salaries']
-        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Aylık Maaş (USD)')
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Aylık Maaş (USD)' if language == 'tr' else 'Monthly Salary (USD)')
         if use_months:
-            title += 'Aylık Maaş (USD) '
+            title_tr += 'Aylık Maaş (USD) '
+            title_en += 'Monthly Salary (USD) '
         else:
-            title += 'Yıllık Maaş (USD) '
+            title_tr += 'Yıllık Maaş (USD) '
+            title_en += 'Annual Salary (USD) '
         saving_title += 'salary_'
-        info_text += f"Euro/$ Kuru: {config.euro_dollar_rate}\n"
+        info_text_tr += f"Euro/$ Kuru: {config.euro_dollar_rate}\n"
+        info_text_en += f"Euro/$ Rate: {config.euro_dollar_rate}\n"
 
     if args.plot_cumulative_payment_usd:
         y_data = data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual']
         y_data = np.insert(y_data, 0, 0)
-        plt.plot(range(0, total_steps + 1 ), y_data, marker='o', label='Kümülatif Ödeme (USD)')
-        title += 'Kümülatif Ödeme (USD) '
+        plt.plot(range(0, total_steps + 1 ), y_data, marker='o', label='Kümülatif Ödeme (USD)' if language == 'tr' else 'Cumulative Payment (USD)')
+        title_tr += 'Kümülatif Ödeme (USD) '
+        title_en += 'Cumulative Payment (USD) '
         saving_title += 'cumulative_'
-        info_text += f"Aylık Kredi Ödemesi (TL): {config.monthly_tl_payment} TL\n"
+        info_text_tr += f"Aylık Kredi Ödemesi (TL): {config.monthly_tl_payment} TL\n"
+        info_text_en += f"Monthly Credit Payment (TL): {config.monthly_tl_payment} TL\n"
 
     if args.plot_total_credit_amount_with_initial_noncredit_amount:
         y_data = calculate_total_credit_amount(data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual'], config.initial_noncredit_amount_usd)
         y_data = np.insert(y_data, 0, config.initial_noncredit_amount_usd)
         plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)')
-        title += 'Kredi Miktarı (USD) '
+        title_tr += 'Kredi Miktarı (USD) '
+        title_en += 'Total Credit Amount (USD) '
         saving_title += 'credit_'
-        info_text += f"Toplam Kredi Miktarı (USD): {y_data[-1]:.2f} USD\n"
+        info_text_tr += f"Toplam Kredi Miktarı (USD): {y_data[-1]:.2f} USD\n"
+        info_text_en += f"Total Credit Amount (USD): {y_data[-1]:.2f} USD\n"
     
     if args.plot_value_of_house_usd:
         plt.plot(0, config.value_of_house_usd, marker='o', label='Ev Değeri (USD)')
-        title += 'Ev Değeri (USD) '
+        title_tr += 'Ev Değeri (USD) '
+        title_en += 'House Value (USD) '
         saving_title += 'house_'
-        info_text += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:.2f} USD\n"
-        info_text += f"Ev Değeri Başlangıç Değeri (TL): {config.value_of_house_tl:.2f} TL\n"
+        info_text_tr += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:.2f} USD\n"
+        info_text_en += f"House Value (USD): {config.value_of_house_usd:.2f} USD\n"
     
     if args.plot_monthly_payment_usd:
         y_data = data['monthly_payment_usd']
         plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)')
-        title += 'Aylık Ödeme (USD) '
+        title_tr += 'Aylık Ödeme (USD) '
+        title_en += 'Monthly Payment (USD) '
         saving_title += 'monthly_'
     
     if args.plot_payment_salary_ratio:
@@ -157,19 +175,23 @@ def make_plots(config, data, args):
             y_data = data['monthly_payment_usd'] / dollar_salaries  # monthly salary ratio
         else:
             y_data = data['annual_payment_usd'] / dollar_salaries
-        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Payment / Salary Ratio')
-        title += 'Payment/Salary Ratio '
+        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Ödeme/Maaş Oranı')
+        title_tr += 'Ödeme/Maaş Oranı '
+        title_en += 'Payment/Salary Ratio '
         saving_title += 'payment_salary_ratio_'
 
     plt.xticks(range(0, total_steps + 1, 12 if use_months else 1))
-    plt.title(title.strip())
-    plt.xlabel('Ay' if use_months else 'Yıl')
+    plt.title(title_tr.strip() if language == 'tr' else title_en.strip())
+    x_label_tr = 'Ay' if use_months else 'Yıl'
+    x_label_en = 'Month' if use_months else 'Year'
+
+    plt.xlabel(x_label_tr if language == 'tr' else x_label_en)
     plt.ylabel('USD')
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.1), ncol=2)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
     plt.grid(True)
     plt.tight_layout()
 
-    plt.gcf().text(0.98, 0.02, info_text, fontsize=9, verticalalignment='bottom', horizontalalignment='right',
+    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'tr' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='right',
                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
 
     if config.save_plots:
@@ -183,9 +205,11 @@ def make_plots(config, data, args):
         print(f"Plot saved as {saving_title}")
     
     # Always save the plot for Streamlit to display
-    plot_filename = "monthly_dollar_house_credit_cumulative_salary.png" if use_months else "annual_dollar_house_credit_cumulative_salary.png"
-    plt.savefig(plot_filename)
+    #plot_filename = "monthly_dollar_house_credit_cumulative_salary.png" if use_months else "annual_dollar_house_credit_cumulative_salary.png"
+    #plt.savefig(plot_filename)
+    fig = plt.gcf()
     plt.close()
+    return fig
 
 def generate_random_values_yearly(initial_rate, years, target_avg_increase_pct):
     target_avg_increase = target_avg_increase_pct / 100

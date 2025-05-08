@@ -2,6 +2,7 @@ import streamlit as st
 import os
 from datetime import datetime
 import matplotlib.pyplot as plt
+from io import BytesIO
 from main import (
     Config,
     calculate_dollar_rates_annual,
@@ -25,6 +26,8 @@ if 'last_plot_caption' not in st.session_state:
     st.session_state.last_plot_caption = None
 if 'language' not in st.session_state:
     st.session_state.language = 'English'
+if 'last_fig' not in st.session_state:
+    st.session_state.last_fig = None
 
 # Set page config with sidebar initially collapsed
 st.set_page_config(
@@ -36,7 +39,7 @@ st.set_page_config(
 # Sidebar - Theme and Language
 with st.sidebar:
     st.markdown("### 🎨 Theme Settings")
-    theme = st.selectbox("Choose Theme", ["Dark", "Light"], index=0)
+    theme = st.selectbox("Choose Theme", ["Dark"], index=0) #, "Light"
     
     st.markdown("### 🌍 Language / Dil")
     language = st.radio("Select Language / Dil Seçin", ["English", "Türkçe"], index=0 if st.session_state.language == 'English' else 1)
@@ -57,7 +60,7 @@ with st.sidebar:
         - Use the monthly view for more detailed analysis
         - Adjust the dollar growth rate to simulate different scenarios
         - Compare property values and initial payments for investment insights
-        - Enable "Save Plots to File" if you want to keep the generated plots
+        - Enable "Download Plot" if you want to keep the generated plots
         """)
     else:
         st.markdown("""
@@ -73,7 +76,7 @@ with st.sidebar:
         - Daha detaylı analiz için aylık görünümü kullanın
         - Farklı senaryoları simüle etmek için dolar artış oranını ayarlayın
         - Yatırım içgörüleri için mülk değerlerini ve başlangıç ödemelerini karşılaştırın
-        - Oluşturulan grafikleri saklamak istiyorsanız "Grafikleri Dosyaya Kaydet"i etkinleştirin
+        - Oluşturulan grafikleri saklamak istiyorsanız "Grafikleri İndir"i etkinleştirin
         """)
 
 # Apply theme styles
@@ -124,11 +127,11 @@ with col1:
     start_salary_base = st.number_input("Start Salary" if language == "English" else "Başlangıç Maaşı (Brut)", min_value=0, value=0)
     salary_growth = st.number_input("Salary Increase Rate (%)" if language == "English" else "Maaş Artış Oranı (%)", min_value=0.0, value=0.0)
     euro_dollar_rate = st.number_input("Euro/Dollar Rate" if language == "English" else "Euro/Dolar Kuru", min_value=0.0, value=1.15)
-    months_to_increase = st.number_input("Months to Increase Salary" if language == "English" else "Maaş Artışına Kalan Ay Sayısı", min_value=0, value=12)
+    months_to_increase = st.number_input("Months to Increase Salary" if language == "English" else "Maaş Artışına Kalan Ay Sayısı", min_value=0,max_value=12, value=12)
 with col2:
     st.markdown("### 🏠 " + ("Property Parameters" if language == "English" else "Mülk Parametreleri"))
-    initial_noncredit_amount = st.number_input("Initial Non-Credit Amount (TL)" if language == "English" else "Başlangıç Peşinat (TL)", min_value=0, value=1000000)
-    value_of_house_tl = st.number_input("Value of House (TL)" if language == "English" else "Ev Değeri (TL)", min_value=0, value=2500000)
+    initial_noncredit_amount = st.number_input("Initial Non-Credit Amount (Million TL)" if language == "English" else "Başlangıç Peşinat (Milyon TL)", min_value=0.0, value=1.0)
+    value_of_house_tl = st.number_input("Value of House (Million TL)" if language == "English" else "Ev Değeri (Milyon TL)", min_value=0.0, value=2.5)
     price_rent_ratio = st.number_input("Price/Rent Ratio (Years)" if language == "English" else "Fiyat/Kira Oranı (Yıl)", min_value=1, value=15)
     
     with st.expander("📈 " + ("Advanced Parameters" if language == "English" else "Gelişmiş Parametreler")):
@@ -156,6 +159,8 @@ with col1:
     if st.button("🚀 " + ("Generate Plot" if language == "English" else "Grafik Oluştur")):
         with st.spinner("Calculating and generating plot..." if language == "English" else "Hesaplanıyor ve grafik oluşturuluyor..."):
             try:
+                initial_noncredit_amount = initial_noncredit_amount * 1000000
+                value_of_house_tl = value_of_house_tl * 1000000
                 monthly_tl_payment = calculate_monthly_payment_tl(
                     value_of_house_tl - initial_noncredit_amount,
                     interest_rate,
@@ -181,7 +186,9 @@ with col1:
                     turkey_inflation_rate=turkey_inflation / 100,
                     price_rent_ratio_yearly=price_rent_ratio,
                     salary_currency=salary_currency,
-                    include_inflation=include_inflation
+                    include_inflation=include_inflation,
+                    language=language,
+                    months_to_increase=months_to_increase
                 )
                 if generate_random_dollar_values and not use_months:
                     dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate)
@@ -199,8 +206,6 @@ with col1:
                     cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
                     dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
                     dollar_salaries = generate_monthly_salaries_from_yearly(dollar_salaries, months_to_increase)
-                    print(dollar_salaries)
-                    print(len(dollar_salaries))
                     annual_payment_usd = None
                     cumulative_payment_usd_annual = None
                 else:
@@ -234,37 +239,31 @@ with col1:
 
                 args = Args()
 
-                make_plots(config, data, args)
+                fig = make_plots(config, data, args)
+                st.session_state.last_fig = fig
                 
-                plot_filename = "monthly_dollar_house_credit_cumulative_salary.png" if use_months else "annual_dollar_house_credit_cumulative_salary.png"
+                # Save plot to bytes in memory
+                buf = BytesIO()
+                fig.savefig(buf, format='png', bbox_inches='tight', dpi=300)
+                buf.seek(0)
+                img_bytes = buf.getvalue()
+                st.session_state.last_plot = img_bytes
+                st.session_state.last_plot_caption = f"Generated Plot ({'Monthly' if use_months else 'Annual'})" if language == "English" else f"Oluşturulan Grafik ({'Aylık' if use_months else 'Yıllık'})"
                 
-                if os.path.exists(plot_filename):
-                    with open(plot_filename, "rb") as file:
-                        img_bytes = file.read()
-                        # Store the plot in session state
-                        st.session_state.last_plot = img_bytes
-                        st.session_state.last_plot_caption = f"Generated Plot ({'Monthly' if use_months else 'Annual'})" if language == "English" else f"Oluşturulan Grafik ({'Aylık' if use_months else 'Yıllık'})"
-        
-                        try:
-                            os.remove(plot_filename)
-                        except:
-                            pass
-                    
             except Exception as e:
                 st.error(f"❌ An error occurred: {str(e)}" if language == "English" else f"❌ Bir hata oluştu: {str(e)}")
 
 # Display the last generated plot if it exists
-if st.session_state.last_plot is not None:
+if st.session_state.last_fig is not None:
     with col_group:
-        st.image(st.session_state.last_plot, caption=st.session_state.last_plot_caption, use_container_width=True)
+        st.pyplot(st.session_state.last_fig)
         
         # Only show download button if there's a plot
-    with col1:
-        st.download_button(
-            label="📥 " + ("Download Plot" if language == "English" else "Grafiği İndir"),
-            data=st.session_state.last_plot,
-            file_name=f"generated_plot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-            mime="image/png"
-        )
-
-
+        if st.session_state.last_plot is not None:
+            with col1:
+                st.download_button(
+                    label="📥 " + ("Download Plot" if language == "English" else "Grafiği İndir"),
+                    data=st.session_state.last_plot,
+                    file_name=f"real_estate_projection_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+                    mime="image/png"
+                )

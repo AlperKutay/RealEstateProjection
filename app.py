@@ -18,11 +18,13 @@ from main import (
     generate_monthly_salaries_from_yearly
 )
 
-# Initialize session state for storing the last generated plot
+# Initialize session state for storing the last generated plot and language
 if 'last_plot' not in st.session_state:
     st.session_state.last_plot = None
 if 'last_plot_caption' not in st.session_state:
     st.session_state.last_plot_caption = None
+if 'language' not in st.session_state:
+    st.session_state.language = 'English'
 
 # Set page config with sidebar initially collapsed
 st.set_page_config(
@@ -31,26 +33,48 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Sidebar - Theme
+# Sidebar - Theme and Language
 with st.sidebar:
     st.markdown("### 🎨 Theme Settings")
     theme = st.selectbox("Choose Theme", ["Dark", "Light"], index=0)
-# Footer tips
-    st.markdown("""
-    ### **How to Use:**
-    1. Adjust the parameters in the control panel
-    2. Select your salary currency (EUR, USD, or TL)
-    3. Choose whether to include inflation in calculations
-    4. Select which plots you want to display
-    5. Click "Generate Plot" to create the visualization
-    6. The plot will appear in the right columns and optionally be saved
+    
+    st.markdown("### 🌍 Language / Dil")
+    language = st.radio("Select Language / Dil Seçin", ["English", "Türkçe"], index=0 if st.session_state.language == 'English' else 1)
+    st.session_state.language = language
 
-    **Tips:**
-    - Use the monthly view for more detailed analysis
-    - Adjust the dollar growth rate to simulate different scenarios
-    - Compare property values and initial payments for investment insights
-    - Enable "Save Plots to File" if you want to keep the generated plots
-    """)
+    # Footer tips based on language
+    if language == "English":
+        st.markdown("""
+        ### **How to Use:**
+        1. Adjust the parameters in the control panel
+        2. Select your salary currency (EUR, USD, or TL)
+        3. Choose whether to include inflation in calculations
+        4. Select which plots you want to display
+        5. Click "Generate Plot" to create the visualization
+        6. The plot will appear in the right columns and optionally be saved
+
+        **Tips:**
+        - Use the monthly view for more detailed analysis
+        - Adjust the dollar growth rate to simulate different scenarios
+        - Compare property values and initial payments for investment insights
+        - Enable "Save Plots to File" if you want to keep the generated plots
+        """)
+    else:
+        st.markdown("""
+        ### **Kullanım:**
+        1. Kontrol panelinden parametreleri ayarlayın
+        2. Maaş para biriminizi seçin (EUR, USD veya TL)
+        3. Hesaplamalarda enflasyonu dahil etmek isteyip istemediğinizi seçin
+        4. Gösterilecek grafikleri seçin
+        5. Görselleştirmeyi oluşturmak için "Grafik Oluştur" düğmesine tıklayın
+        6. Grafik sağ sütunlarda görünecek ve isteğe bağlı olarak kaydedilebilecek
+
+        **İpuçları:**
+        - Daha detaylı analiz için aylık görünümü kullanın
+        - Farklı senaryoları simüle etmek için dolar artış oranını ayarlayın
+        - Yatırım içgörüleri için mülk değerlerini ve başlangıç ödemelerini karşılaştırın
+        - Oluşturulan grafikleri saklamak istiyorsanız "Grafikleri Dosyaya Kaydet"i etkinleştirin
+        """)
 
 # Apply theme styles
 if theme == "Dark":
@@ -82,55 +106,55 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
-st.title("🏠 Real Estate Projection")
+st.title("🏠 Real Estate Projection" if language == "English" else "🏠 Gayrimenkul Projeksiyonu")
 
 # Layout: Columns
 col1, col2, col_group = st.columns([1, 1, 4])
 
 with col1:
-    st.markdown("### 📊 Basic Parameters")
-    years = st.number_input("Loan Period (Years)", min_value=1, max_value=30, value=10)
-    interest_rate = st.number_input("Morgage Interest Rate (%)", min_value=0.0, max_value=100.0, value=2.89)
-    start_dollar_tl = st.number_input("Initial Dollar/TL Rate", min_value=1.0, value=38.6)
-    dollar_growth_rate = st.number_input("Dollar Increase Rate Yearly(%)", min_value=0.0, value=35.0)
+    st.markdown("### 📊 " + ("Basic Parameters" if language == "English" else "Temel Parametreler"))
+    years = st.number_input("Loan Period (Years)" if language == "English" else "Kredi Vadesi (Yıl)", min_value=1, max_value=30, value=10)
+    interest_rate = st.number_input("Mortgage Interest Rate (%)" if language == "English" else "Mortgage Faiz Oranı (%)", min_value=0.0, max_value=100.0, value=2.89)
+    start_dollar_tl = st.number_input("Initial Dollar/TL Rate" if language == "English" else "Başlangıç Dolar/TL Kuru", min_value=1.0, value=38.6)
+    dollar_growth_rate = st.number_input("Dollar Increase Rate Yearly(%)" if language == "English" else "Yıllık Dolar Artış Oranı(%)", min_value=0.0, value=35.0)
     
-    st.markdown("### 💼 Salary Parameters")
-    salary_currency = st.selectbox("Salary Currency", ["EUR", "USD", "TL"], index=0)
-    salary_type = st.selectbox("Salary Type", ["Yearly", "Monthly"], index=0)
-    start_salary_base = st.number_input("Start Salary", min_value=0, value=0)
-    salary_growth = st.number_input("Salary Increase Rate (%)", min_value=0.0, value=0.0)
-    euro_dollar_rate = st.number_input("Euro/Dollar Rate", min_value=0.0, value=1.15)
-    months_to_increase = st.number_input("Months to Increase Salary", min_value=0, value=12)
+    st.markdown("### 💼 " + ("Salary Parameters" if language == "English" else "Maaş Parametreleri"))
+    salary_currency = st.selectbox("Salary Currency" if language == "English" else "Maaş Para Birimi", ["EUR", "USD", "TL"], index=0)
+    salary_type = st.selectbox("Salary Type" if language == "English" else "Maaş Tipi", ["Yearly", "Monthly"] if language == "English" else ["Yıllık", "Aylık"], index=0)
+    start_salary_base = st.number_input("Start Salary" if language == "English" else "Başlangıç Maaşı (Brut)", min_value=0, value=0)
+    salary_growth = st.number_input("Salary Increase Rate (%)" if language == "English" else "Maaş Artış Oranı (%)", min_value=0.0, value=0.0)
+    euro_dollar_rate = st.number_input("Euro/Dollar Rate" if language == "English" else "Euro/Dolar Kuru", min_value=0.0, value=1.15)
+    months_to_increase = st.number_input("Months to Increase Salary" if language == "English" else "Maaş Artışına Kalan Ay Sayısı", min_value=0, value=12)
 with col2:
-    st.markdown("### 🏠 Property Parameters")
-    initial_noncredit_amount = st.number_input("Initial Non-Credit Amount (TL)", min_value=0, value=1000000)
-    value_of_house_tl = st.number_input("Value of House (TL)", min_value=0, value=2500000)
-    price_rent_ratio = st.number_input("Price/Rent Ratio (Years)", min_value=1, value=15)
+    st.markdown("### 🏠 " + ("Property Parameters" if language == "English" else "Mülk Parametreleri"))
+    initial_noncredit_amount = st.number_input("Initial Non-Credit Amount (TL)" if language == "English" else "Başlangıç Peşinat (TL)", min_value=0, value=1000000)
+    value_of_house_tl = st.number_input("Value of House (TL)" if language == "English" else "Ev Değeri (TL)", min_value=0, value=2500000)
+    price_rent_ratio = st.number_input("Price/Rent Ratio (Years)" if language == "English" else "Fiyat/Kira Oranı (Yıl)", min_value=1, value=15)
     
-    with st.expander("📈 Advanced Parameters"):
-        usa_inflation = st.number_input("USA Inflation Rate (%)", min_value=0.0, value=3.0)
-        turkey_inflation = st.number_input("Turkey Inflation Rate (%)", min_value=0.0, value=35.0)
-        include_inflation = st.checkbox("Include Inflation in Calculations", value=False)
-        generate_random_dollar_values = st.checkbox("Generate Random Dollar Values", value=False)
-        use_months = st.checkbox("Use Monthly View", value=False)
+    with st.expander("📈 " + ("Advanced Parameters" if language == "English" else "Gelişmiş Parametreler")):
+        usa_inflation = st.number_input("USA Inflation Rate (%)" if language == "English" else "ABD Enflasyon Oranı (%)", min_value=0.0, value=3.0)
+        turkey_inflation = st.number_input("Turkey Inflation Rate (%)" if language == "English" else "Türkiye Enflasyon Oranı (%)", min_value=0.0, value=35.0)
+        include_inflation = st.checkbox("Include Inflation in Calculations" if language == "English" else "Hesaplamalarda Enflasyonu Dahil Et", value=False)
+        generate_random_dollar_values = st.checkbox("Generate Random Dollar Values" if language == "English" else "Rastgele Dolar Değerleri Oluştur", value=False)
+        use_months = st.checkbox("Use Monthly View" if language == "English" else "Aylık Görünüm Kullan", value=False)
     #st.markdown("### 📊 Plot Options")
     
     save_plots = False #st.checkbox("Save Plots to File", value=False)
     
-    st.markdown("### 📌 Select Plots")
-    plot_annual_payment = st.checkbox("Morgage Payment (USD)", value=False)
-    plot_dollar_rates = st.checkbox("USD/TL Rates", value=False)
-    plot_dollar_salaries = st.checkbox("Base Salary (USD)", value=False)
-    plot_cumulative_payment = st.checkbox("Cumulative Morgage Payment (USD)", value=False)
-    plot_total_credit = st.checkbox("Total Paid Morgage (USD)", value=False)
-    plot_value_of_house = st.checkbox("Price of the House (USD)", value=False)
-    plot_payment_salary_ratio = st.checkbox("Morgage Payment / Salary Ratio", value=False)
+    st.markdown("### 📌 " + ("Select Plots" if language == "English" else "Grafikleri Seç"))
+    plot_annual_payment = st.checkbox("Mortgage Payment (USD)" if language == "English" else "Mortgage Ödemesi (USD)", value=False)
+    plot_dollar_rates = st.checkbox("USD/TL Rates" if language == "English" else "USD/TL Kurları", value=False)
+    plot_dollar_salaries = st.checkbox("Base Salary (USD)" if language == "English" else "Temel Maaş (USD)", value=False)
+    plot_cumulative_payment = st.checkbox("Cumulative Mortgage Payment (USD)" if language == "English" else "Kümülatif Mortgage Ödemesi (USD)", value=False)
+    plot_total_credit = st.checkbox("Total Paid Mortgage (USD)" if language == "English" else "Toplam Ödenen Mortgage (USD)", value=False)
+    plot_value_of_house = st.checkbox("Price of the House (USD)" if language == "English" else "Ev Fiyatı (USD)", value=False)
+    plot_payment_salary_ratio = st.checkbox("Mortgage Payment / Salary Ratio" if language == "English" else "Mortgage Ödemesi / Maaş Oranı", value=False)
     #plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
 
 with col1:
     # Generate button with spinner
-    if st.button("🚀 Generate Plot"):
-        with st.spinner("Calculating and generating plot..."):
+    if st.button("🚀 " + ("Generate Plot" if language == "English" else "Grafik Oluştur")):
+        with st.spinner("Calculating and generating plot..." if language == "English" else "Hesaplanıyor ve grafik oluşturuluyor..."):
             try:
                 monthly_tl_payment = calculate_monthly_payment_tl(
                     value_of_house_tl - initial_noncredit_amount,
@@ -219,7 +243,7 @@ with col1:
                         img_bytes = file.read()
                         # Store the plot in session state
                         st.session_state.last_plot = img_bytes
-                        st.session_state.last_plot_caption = f"Generated Plot ({'Monthly' if use_months else 'Annual'})"
+                        st.session_state.last_plot_caption = f"Generated Plot ({'Monthly' if use_months else 'Annual'})" if language == "English" else f"Oluşturulan Grafik ({'Aylık' if use_months else 'Yıllık'})"
         
                         try:
                             os.remove(plot_filename)
@@ -227,7 +251,7 @@ with col1:
                             pass
                     
             except Exception as e:
-                st.error(f"❌ An error occurred: {str(e)}")
+                st.error(f"❌ An error occurred: {str(e)}" if language == "English" else f"❌ Bir hata oluştu: {str(e)}")
 
 # Display the last generated plot if it exists
 if st.session_state.last_plot is not None:
@@ -237,7 +261,7 @@ if st.session_state.last_plot is not None:
         # Only show download button if there's a plot
     with col1:
         st.download_button(
-            label="📥 Download Plot",
+            label="📥 " + ("Download Plot" if language == "English" else "Grafiği İndir"),
             data=st.session_state.last_plot,
             file_name=f"generated_plot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
             mime="image/png"

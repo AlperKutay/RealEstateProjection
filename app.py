@@ -14,7 +14,8 @@ from main import (
     calculate_monthly_payment_tl,
     make_plots,
     generate_random_values_yearly,
-    generate_random_values_monthly
+    generate_random_values_monthly,
+    generate_monthly_salaries_from_yearly
 )
 
 # Initialize session state for storing the last generated plot
@@ -96,10 +97,10 @@ with col1:
     st.markdown("### 💼 Salary Parameters")
     salary_currency = st.selectbox("Salary Currency", ["EUR", "USD", "TL"], index=0)
     salary_type = st.selectbox("Salary Type", ["Yearly", "Monthly"], index=0)
-    start_salary_base = st.number_input("Start Salary", min_value=0, value=32000)
-    salary_growth = st.number_input("Salary Increase Rate (%)", min_value=0.0, value=6.0)
+    start_salary_base = st.number_input("Start Salary", min_value=0, value=0)
+    salary_growth = st.number_input("Salary Increase Rate (%)", min_value=0.0, value=0.0)
     euro_dollar_rate = st.number_input("Euro/Dollar Rate", min_value=0.0, value=1.15)
-
+    months_to_increase = st.number_input("Months to Increase Salary", min_value=0, value=12)
 with col2:
     st.markdown("### 🏠 Property Parameters")
     initial_noncredit_amount = st.number_input("Initial Non-Credit Amount (TL)", min_value=0, value=1000000)
@@ -117,12 +118,13 @@ with col2:
     save_plots = False #st.checkbox("Save Plots to File", value=False)
     
     st.markdown("### 📌 Select Plots")
-    plot_annual_payment = st.checkbox("Payment (USD)", value=False)
+    plot_annual_payment = st.checkbox("Morgage Payment (USD)", value=False)
     plot_dollar_rates = st.checkbox("USD/TL Rates", value=False)
-    plot_dollar_salaries = st.checkbox("Salary (USD)", value=False)
-    plot_cumulative_payment = st.checkbox("Cumulative Payment (USD)", value=False)
-    plot_total_credit = st.checkbox("Total Credit Amount", value=False)
-    plot_value_of_house = st.checkbox("Value of House (USD)", value=False)
+    plot_dollar_salaries = st.checkbox("Base Salary (USD)", value=False)
+    plot_cumulative_payment = st.checkbox("Cumulative Morgage Payment (USD)", value=False)
+    plot_total_credit = st.checkbox("Total Paid Morgage (USD)", value=False)
+    plot_value_of_house = st.checkbox("Price of the House (USD)", value=False)
+    plot_payment_salary_ratio = st.checkbox("Morgage Payment / Salary Ratio", value=False)
     #plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
 
 with col1:
@@ -155,7 +157,7 @@ with col1:
                     turkey_inflation_rate=turkey_inflation / 100,
                     price_rent_ratio_yearly=price_rent_ratio,
                     salary_currency=salary_currency,
-                    include_inflation=include_inflation,
+                    include_inflation=include_inflation
                 )
                 if generate_random_dollar_values and not use_months:
                     dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate)
@@ -171,6 +173,10 @@ with col1:
                 if use_months:
                     monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
                     cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
+                    dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
+                    dollar_salaries = generate_monthly_salaries_from_yearly(dollar_salaries, months_to_increase)
+                    print(dollar_salaries)
+                    print(len(dollar_salaries))
                     annual_payment_usd = None
                     cumulative_payment_usd_annual = None
                 else:
@@ -178,15 +184,7 @@ with col1:
                     cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
                     cumulative_payment_usd_monthly = None
                     monthly_payment_usd = None
-
-                dollar_salaries = calculate_usd_salaries(
-                    config.start_salary_base,
-                    config.salary_growth_annual,
-                    config.years,
-                    config.euro_dollar_rate,
-                    config.salary_currency,
-                    dollar_rates_annual
-                )
+                    dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual)                
 
                 data = {
                     'dollar_rates_annual': dollar_rates_annual,
@@ -206,6 +204,7 @@ with col1:
                         self.plot_cumulative_payment_usd = plot_cumulative_payment
                         self.plot_total_credit_amount_with_initial_noncredit_amount = plot_total_credit
                         self.plot_value_of_house_usd = plot_value_of_house
+                        self.plot_payment_salary_ratio = plot_payment_salary_ratio
                         self.plot_monthly_payment_usd = 0 #plot_monthly_payment
                         self.use_months = use_months
 
@@ -230,15 +229,18 @@ with col1:
             except Exception as e:
                 st.error(f"❌ An error occurred: {str(e)}")
 
-    st.download_button(
-        label="📥 Download Plot",
-        data=st.session_state.last_plot,
-        file_name=f"generated_plot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
-        mime="image/png"
-    )
-
 # Display the last generated plot if it exists
 if st.session_state.last_plot is not None:
     with col_group:
         st.image(st.session_state.last_plot, caption=st.session_state.last_plot_caption, use_container_width=True)
+        
+        # Only show download button if there's a plot
+    with col1:
+        st.download_button(
+            label="📥 Download Plot",
+            data=st.session_state.last_plot,
+            file_name=f"generated_plot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+            mime="image/png"
+        )
+
 

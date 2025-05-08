@@ -97,32 +97,42 @@ def make_plots(config, data, args):
     title_tr, title_en, saving_title = '', '', ''
     language = config.language
     info_text_tr = (
-        f"VADE: {config.years}\n"
-        f"Evin Fiyatı: {config.value_of_house_usd:.2f} USD\n"
+        f"VADE: {config.years:,}\n"
+        f"Evin Fiyatı: {config.value_of_house_usd:,.2f} USD\n"
     )
     info_text_en = (
-        f"VADE: {config.years}\n"
-        f"House Price: {config.value_of_house_usd:.2f} USD\n"
+        f"Loan Period: {config.years:,}\n"
+        f"House Price: {config.value_of_house_usd:,.2f} USD\n"
     )
     if args.plot_annual_payment_usd:
         y_data = data['monthly_payment_usd'] if use_months else data['annual_payment_usd']
         plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if language == 'tr' else 'Monthly Payment (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and (i) % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i + 1, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Aylık Ödeme (USD) ' if language == 'tr' else 'Monthly Payment (USD) '
         title_en += 'Monthly Payment (USD) ' if language == 'en' else 'Annual Payment (USD) '
         saving_title += 'monthly_' if use_months else 'annual_'
-        info_text_tr += f"Aylık Ödeme (USD): {y_data[0]:.2f} USD\n" if language == 'tr' else f"Yıllık Ödeme (USD): {y_data[0]:.2f} USD\n"
-        info_text_en += f"Monthly Payment (USD): {y_data[0]:.2f} USD\n" if language == 'en' else f"Annual Payment (USD): {y_data[0]:.2f} USD\n"
+        #info_text_tr += f"Aylık Ödeme (USD): {y_data[0]:,.2f} USD\n" if language == 'tr' else f"Yıllık Ödeme (USD): {y_data[0]:,.2f} USD\n"
+        #info_text_en += f"Monthly Payment (USD): {y_data[0]:,.2f} USD\n" if language == 'en' else f"Annual Payment (USD): {y_data[0]:,.2f} USD\n"
 
     if args.plot_dollar_rates:
         y_data = data['dollar_rates_monthly'] if use_months else data['dollar_rates_annual']
-        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)' if language == 'tr' else 'Dollar Rate (TL)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Dolar Kuru (TL) '
         title_en += 'Dollar Rate (TL) '
         saving_title += 'dollar_'
 
+
     if args.plot_dollar_salaries:
         y_data = data['dollar_salaries']
         plt.plot(range(0, len(y_data)), y_data, marker='o', label='Aylık Maaş (USD)' if language == 'tr' else 'Monthly Salary (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         if use_months:
             title_tr += 'Aylık Maaş (USD) '
             title_en += 'Monthly Salary (USD) '
@@ -130,40 +140,49 @@ def make_plots(config, data, args):
             title_tr += 'Yıllık Maaş (USD) '
             title_en += 'Annual Salary (USD) '
         saving_title += 'salary_'
-        info_text_tr += f"Euro/$ Kuru: {config.euro_dollar_rate}\n"
-        info_text_en += f"Euro/$ Rate: {config.euro_dollar_rate}\n"
+        info_text_tr += f"Euro/$ Kuru: {config.euro_dollar_rate:,.2f}\n"
+        info_text_en += f"Euro/$ Rate: {config.euro_dollar_rate:,.2f}\n"
 
     if args.plot_cumulative_payment_usd:
         y_data = data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual']
         y_data = np.insert(y_data, 0, 0)
         plt.plot(range(0, total_steps + 1 ), y_data, marker='o', label='Kümülatif Ödeme (USD)' if language == 'tr' else 'Cumulative Payment (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Kümülatif Ödeme (USD) '
         title_en += 'Cumulative Payment (USD) '
         saving_title += 'cumulative_'
-        info_text_tr += f"Aylık Kredi Ödemesi (TL): {config.monthly_tl_payment} TL\n"
-        info_text_en += f"Monthly Credit Payment (TL): {config.monthly_tl_payment} TL\n"
+        info_text_tr += f"Aylık Kredi Ödemesi (TL): {config.monthly_tl_payment:,.2f} TL\n"
+        info_text_en += f"Monthly Credit Payment (TL): {config.monthly_tl_payment:,.2f} TL\n"
 
     if args.plot_total_credit_amount_with_initial_noncredit_amount:
         y_data = calculate_total_credit_amount(data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual'], config.initial_noncredit_amount_usd)
         y_data = np.insert(y_data, 0, config.initial_noncredit_amount_usd)
         plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Kredi Miktarı (USD) '
         title_en += 'Total Credit Amount (USD) '
         saving_title += 'credit_'
-        info_text_tr += f"Toplam Kredi Miktarı (USD): {y_data[-1]:.2f} USD\n"
-        info_text_en += f"Total Credit Amount (USD): {y_data[-1]:.2f} USD\n"
+        info_text_tr += f"Toplam Kredi Miktarı (USD): {y_data[-1]:,.2f} USD\n"
+        info_text_en += f"Total Credit Amount (USD): {y_data[-1]:,.2f} USD\n"
     
     if args.plot_value_of_house_usd:
         plt.plot(0, config.value_of_house_usd, marker='o', label='Ev Değeri (USD)')
         title_tr += 'Ev Değeri (USD) '
         title_en += 'House Value (USD) '
         saving_title += 'house_'
-        info_text_tr += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:.2f} USD\n"
-        info_text_en += f"House Value (USD): {config.value_of_house_usd:.2f} USD\n"
+        info_text_tr += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:,.2f} USD\n"
+        info_text_en += f"House Value (USD): {config.value_of_house_usd:,.2f} USD\n"
     
     if args.plot_monthly_payment_usd:
         y_data = data['monthly_payment_usd']
         plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Aylık Ödeme (USD) '
         title_en += 'Monthly Payment (USD) '
         saving_title += 'monthly_'
@@ -176,6 +195,9 @@ def make_plots(config, data, args):
         else:
             y_data = data['annual_payment_usd'] / dollar_salaries
         plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Ödeme/Maaş Oranı')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and (i + 1) % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i + 1, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Ödeme/Maaş Oranı '
         title_en += 'Payment/Salary Ratio '
         saving_title += 'payment_salary_ratio_'
@@ -191,7 +213,7 @@ def make_plots(config, data, args):
     plt.grid(True)
     plt.tight_layout()
 
-    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'tr' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='right',
+    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'tr' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='center',
                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
 
     if config.save_plots:

@@ -29,8 +29,8 @@ class Config:
     salary_currency: str
     include_inflation: bool
     months_to_increase: int
+    initial_rent_price_tl: float
     language: str
-
 # === Hesaplamalar ===
 def calculate_dollar_rates_annual(start_dollar_tl, dollar_growth_rate_annual, years):
     rates = [start_dollar_tl]
@@ -87,6 +87,22 @@ def calculate_monthly_payment_tl(total_credit_amount, interest_rate_of_credit, y
     monthly_payment_tl = interest_rate_of_credit * total_credit_amount / 100
     return monthly_payment_tl
 
+def calculate_rent_price_usd(rent_price_tl, turkish_inflation_rate, dollar_rates):
+    #dollar_rates = np.delete(dollar_rates, 0)
+    rent_price_yearly_tl = [rent_price_tl*12]
+    for _ in range(1, len(dollar_rates)):
+        rent_price_yearly_tl.append(rent_price_yearly_tl[-1] * (1 + turkish_inflation_rate))
+    rent_price_yearly_usd = np.array(rent_price_yearly_tl)/ dollar_rates
+    return rent_price_yearly_usd,rent_price_yearly_tl
+
+def generate_rent_price_usd_monthly(rent_price_tl_yearly, turkish_inflation_rate, dollar_rates):
+    monthly_rent_prices = []
+    for yearly in rent_price_tl_yearly[:-1]:
+        monthly = yearly / 12
+        monthly_rent_prices.extend([monthly] * 12)
+    monthly_rent_prices.append(rent_price_tl_yearly[-1] / 12)
+
+    return np.array(monthly_rent_prices) / dollar_rates
 
 def make_plots(config, data, args):
     plt.figure(figsize=(12 , 7))
@@ -202,6 +218,16 @@ def make_plots(config, data, args):
         title_en += 'Payment/Salary Ratio '
         saving_title += 'payment_salary_ratio_'
 
+    if args.plot_rent_price_usd:
+        y_data = data['rent_price_usd_yearly'] if not use_months else data['rent_price_usd_monthly']
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Kira Fiyatı (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
+        title_tr += 'Kira Fiyatı (USD) '
+        title_en += 'Rent Price (USD) '
+        saving_title += 'rent_price_'
+    
     plt.xticks(range(0, total_steps + 1, 12 if use_months else 1))
     plt.title(title_tr.strip() if language == 'tr' else title_en.strip())
     x_label_tr = 'Ay' if use_months else 'Yıl'

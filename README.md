@@ -4,7 +4,7 @@ A powerful web application for analyzing and projecting real estate investments,
 
 ## 🌐 Live Demo
 
-Try the application here: [Real Estate Projection App](https://realestateprojection-awqwcafqdbessxurbqezxn.streamlit.app/)
+Try the application here: [Real Estate Projection App](https://realestateprojection.streamlit.app/)
 
 ## 📊 Features
 

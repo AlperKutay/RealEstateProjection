@@ -3,10 +3,11 @@ import os
 from datetime import datetime
 import matplotlib.pyplot as plt
 from io import BytesIO
+import numpy as np
 from main import (
     Config,
-    calculate_dollar_rates_annual,
-    calculate_dollar_rates_monthly,
+    calculate_with_annual_growth_rate,
+    calculate_with_monthly_growth_rate,
     calculate_annual_payment_usd,
     calculate_monthly_payment_usd,
     calculate_cumulative_payment_usd,
@@ -18,7 +19,10 @@ from main import (
     generate_random_values_monthly,
     generate_monthly_salaries_from_yearly,
     calculate_rent_price_usd,
-    generate_rent_price_usd_monthly
+    generate_rent_price_usd_monthly,
+    calculate_cumulative_rent_price_usd,
+    calculate_cumulative_rent_price_usd_monthly
+
 )
 
 # Initialize session state for storing the last generated plot and language
@@ -126,7 +130,7 @@ with col1:
     st.markdown("### 💼 " + ("Salary Parameters" if language == "English" else "Maaş Parametreleri"))
     salary_currency = st.selectbox("Salary Currency" if language == "English" else "Maaş Para Birimi", ["EUR", "USD", "TL"], index=0)
     salary_type = st.selectbox("Salary Type" if language == "English" else "Maaş Tipi", ["Yearly", "Monthly"] if language == "English" else ["Yıllık", "Aylık"], index=0)
-    start_salary_base = st.number_input("Start Salary" if language == "English" else "Başlangıç Maaşı (Brut)", min_value=0, value=0)
+    start_salary_base = st.number_input("Start Salary (Net)" if language == "English" else "Başlangıç Maaşı (Net)", min_value=0, value=0)
     salary_growth = st.number_input("Salary Increase Rate (%)" if language == "English" else "Maaş Artış Oranı (%)", min_value=0.0, value=0.0)
     euro_dollar_rate = st.number_input("Euro/Dollar Rate" if language == "English" else "Euro/Dolar Kuru", min_value=0.0, value=1.15)
     months_to_increase = st.number_input("Months to Increase Salary" if language == "English" else "Maaş Artışına Kalan Ay Sayısı", min_value=0,max_value=12, value=12)
@@ -140,7 +144,7 @@ with col2:
         usa_inflation = st.number_input("USA Inflation Rate (%)" if language == "English" else "ABD Enflasyon Oranı (%)", min_value=0.0, value=3.0)
         turkey_inflation = st.number_input("Turkey Inflation Rate (%)" if language == "English" else "Türkiye Enflasyon Oranı (%)", min_value=0.0, value=35.0)
         include_inflation = st.checkbox("Include Inflation in Calculations" if language == "English" else "Hesaplamalarda Enflasyonu Dahil Et", value=False)
-        generate_random_dollar_values = st.checkbox("Generate Random Dollar Values" if language == "English" else "Rastgele Dolar Değerleri Oluştur", value=False)
+        generate_random_values = st.checkbox("Generate Random Values" if language == "English" else "Rastgele Değerler Oluştur", value=False)
         #generate_random_inflation_values = st.checkbox("Generate Random Inflation Values" if language == "English" else "Rastgele Enflasyon Değerleri Oluştur", value=False)
         use_months = st.checkbox("Use Monthly View" if language == "English" else "Aylık Görünüm Kullan", value=False)
     #st.markdown("### 📊 Plot Options")
@@ -148,14 +152,17 @@ with col2:
     save_plots = False #st.checkbox("Save Plots to File", value=False)
     
     st.markdown("### 📌 " + ("Select Plots" if language == "English" else "Grafikleri Seç"))
-    plot_annual_payment = st.checkbox("Mortgage Payment (USD)" if language == "English" else "Mortgage Ödemesi (USD)", value=False)
     plot_dollar_rates = st.checkbox("USD/TL Rates" if language == "English" else "USD/TL Kurları", value=False)
+    plot_annual_payment = st.checkbox("Mortgage Payment (USD)" if language == "English" else "Ev kredisi Ödemesi (USD)", value=False)
     plot_dollar_salaries = st.checkbox("Base Salary (USD)" if language == "English" else "Temel Maaş (USD)", value=False)
-    plot_cumulative_payment = st.checkbox("Cumulative Mortgage Payment (USD)" if language == "English" else "Kümülatif Mortgage Ödemesi (USD)", value=False)
-    plot_total_credit = st.checkbox("Total Paid Mortgage (USD)" if language == "English" else "Toplam Ödenen Mortgage (USD)", value=False)
-    plot_value_of_house = st.checkbox("Price of the House (USD)" if language == "English" else "Ev Fiyatı (USD)", value=False)
-    plot_payment_salary_ratio = st.checkbox("Mortgage Payment / Salary Ratio" if language == "English" else "Mortgage Ödemesi / Maaş Oranı", value=False)
+    plot_payment_salary_ratio = st.checkbox("Mortgage Payment / Salary Ratio" if language == "English" else "Ev kredisi Ödemesi / Maaş Oranı", value=False)
+    plot_payment_and_rent_ratio_with_salary = st.checkbox("Mortgage Payment - Rent Price / Salary Ratio" if language == "English" else "Ev kredisi Ödemesi - Kira Fiyatı / Maaş Oranı", value=False)
+    plot_cumulative_payment = st.checkbox("Cumulative Mortgage Payment (USD)" if language == "English" else "Kümülatif Ev kredisi Ödemesi (USD)", value=False)
+    plot_total_credit = st.checkbox("Total Paid Mortgage with Initial Non-Credit Amount (USD)" if language == "English" else "Toplam Ödenen Ev kredisi (USD)", value=False)
+    plot_value_of_house = st.checkbox("Price of the House (USD)" if language == "English" else "Başlangıç Ev Fiyatı (USD)", value=False)
     plot_rent_price = st.checkbox("Rent Price (USD)" if language == "English" else "Kira Fiyatı (USD)", value=False)
+    plot_cumulative_rent_price = st.checkbox("Cumulative Rent Price (USD)" if language == "English" else "Kümülatif Kira Fiyatı (USD)", value=False)
+    plot_value_of_house_with_rent_price = st.checkbox("Initial Price of the House with Rent Price (USD)" if language == "English" else "Başlangıç Ev Fiyatı (USD) (Kira Fiyatı Dahil)", value=False)
     #plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
 
 with col1:
@@ -188,7 +195,9 @@ with col1:
                     value_of_house_usd=value_of_house_tl / start_dollar_tl,
                     save_plots=save_plots,
                     usa_inflation_rate=usa_inflation / 100,
+                    usa_inflation_rate_monthly=(((usa_inflation / 100) + 1) ** (1/12)) - 1,
                     turkey_inflation_rate=turkey_inflation / 100,
+                    turkey_inflation_rate_monthly=(((turkey_inflation / 100) + 1) ** (1/12)) - 1,
                     price_rent_ratio_yearly=price_rent_ratio,
                     salary_currency=salary_currency,
                     include_inflation=include_inflation,
@@ -196,41 +205,89 @@ with col1:
                     months_to_increase=months_to_increase,
                     initial_rent_price_tl=initial_rent_price
                 )
+                dollar_rates_annual = None
+                dollar_rates_monthly = None
+                annual_payment_usd = None
+                monthly_payment_usd = None
+                cumulative_payment_usd_annual = None
+                cumulative_payment_usd_monthly = None
+                dollar_salaries = None
+                rent_price_usd_yearly = None
+                rent_price_usd_monthly = None
+                cumulative_rent_price_usd_yearly = None
+                cumulative_rent_price_usd_monthly = None
+                value_of_house_usd_yearly = None
+                value_of_house_usd_monthly = None
 
+                if not include_inflation:
+                    config.turkey_inflation_rate = 0.001
+                    config.usa_inflation_rate = 0.001
+                    config.usa_inflation_rate_monthly = 0.000001
+                    config.turkey_inflation_rate_monthly = 0.000001
                 
-                
-                if generate_random_dollar_values and not use_months:
-                    dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate)
-                    dollar_rates_monthly = None
-                elif generate_random_dollar_values and use_months:
-                    annual_payment_usd = None
-                    dollar_rates_annual, adjusted_yearly_dollar_increases, dollar_rates_monthly = generate_random_values_monthly(config.start_dollar_tl, config.years, dollar_growth_rate)
+                if generate_random_values and not use_months:
+                    if include_inflation:
+                        dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate - config.usa_inflation_rate)
+                    else:
+                        dollar_rates_annual, adjusted_yearly_dollar_increases = generate_random_values_yearly(config.start_dollar_tl, config.years, dollar_growth_rate)
+
+                elif generate_random_values and use_months:
+
+                    if include_inflation:
+                        dollar_rates_annual, adjusted_yearly_dollar_increases, dollar_rates_monthly = generate_random_values_monthly(config.start_dollar_tl, config.years, dollar_growth_rate - config.usa_inflation_rate)
+                    else:
+                        dollar_rates_annual, adjusted_yearly_dollar_increases, dollar_rates_monthly = generate_random_values_monthly(config.start_dollar_tl, config.years, dollar_growth_rate)
                 else:
-                    dollar_rates_annual = calculate_dollar_rates_annual(config.start_dollar_tl, config.dollar_growth_rate_annual, config.years)
-                    dollar_rates_monthly = calculate_dollar_rates_monthly(config.start_dollar_tl, config.dollar_growth_rate_monthly, config.years)
-
+                    if include_inflation:
+                        dollar_rates_annual = calculate_with_annual_growth_rate(config.start_dollar_tl, config.dollar_growth_rate_annual - config.usa_inflation_rate, config.years)
+                        dollar_rates_monthly = calculate_with_monthly_growth_rate(config.start_dollar_tl, config.dollar_growth_rate_monthly - config.usa_inflation_rate_monthly, config.years)
+                    else:
+                        dollar_rates_annual = calculate_with_annual_growth_rate(config.start_dollar_tl, config.dollar_growth_rate_annual, config.years)
+                        dollar_rates_monthly = calculate_with_monthly_growth_rate(config.start_dollar_tl, config.dollar_growth_rate_monthly, config.years)
                 
+                dollar_rates_annual_np = np.array(dollar_rates_annual)
+                dollar_rates_monthly_np = np.array(dollar_rates_monthly)
+
                 if use_months:
                     monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
                     cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
                     dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
                     dollar_salaries = generate_monthly_salaries_from_yearly(dollar_salaries, months_to_increase)
-                    annual_payment_usd = None
-                    cumulative_payment_usd_annual = None
-                    rent_price_usd = None
                 else:
                     annual_payment_usd = calculate_annual_payment_usd(config.annual_tl_payment, dollar_rates_annual)
                     cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
-                    cumulative_payment_usd_monthly = None
-                    monthly_payment_usd = None
                     dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual)                
-                    
-
-                rent_price_usd_yearly,rent_price_tl_yearly = calculate_rent_price_usd(config.initial_rent_price_tl, config.turkey_inflation_rate, dollar_rates_annual)
-                if use_months:
-                    rent_price_usd_monthly = generate_rent_price_usd_monthly(rent_price_tl_yearly, config.turkey_inflation_rate, dollar_rates_monthly)
+                
+                if generate_random_values:
+                    rent_price_yearly_tl,adjusted_yearly_turkey_inflation_rates = generate_random_values_yearly(config.initial_rent_price_tl*12, config.years, turkey_inflation)
+                    value_of_house_tl_yearly, _ = generate_random_values_yearly(config.value_of_house_tl, config.years, turkey_inflation)
+                    rent_price_yearly_tl_np = np.array(rent_price_yearly_tl)
+                    rent_price_usd_yearly = rent_price_yearly_tl_np / dollar_rates_annual_np
+                    value_of_house_usd_yearly = value_of_house_tl_yearly / dollar_rates_annual_np
+                    if use_months:
+                        # Use the initial rent price, not the array
+                        rent_price_monthly_tl_values, _, rent_price_monthly_tl = generate_random_values_monthly(config.initial_rent_price_tl, config.years, turkey_inflation)
+                        _, _, value_of_house_tl_monthly = generate_random_values_monthly(config.value_of_house_tl, config.years, turkey_inflation)
+                        rent_price_monthly_tl_np = np.array(rent_price_monthly_tl)
+                        dollar_rates_monthly_np = np.array(dollar_rates_monthly)
+                        value_of_house_tl_monthly_np = np.array(value_of_house_tl_monthly)
+                        rent_price_usd_monthly = rent_price_monthly_tl_np / dollar_rates_monthly_np
+                        value_of_house_usd_monthly = value_of_house_tl_monthly_np / dollar_rates_monthly_np
                 else:
-                    rent_price_usd_monthly = None
+                    rent_price_usd_yearly,rent_price_tl_yearly = calculate_rent_price_usd(config.initial_rent_price_tl, config.turkey_inflation_rate, dollar_rates_annual)
+                    if use_months:
+                        rent_price_usd_monthly = generate_rent_price_usd_monthly(rent_price_tl_yearly, config.turkey_inflation_rate, dollar_rates_monthly)
+                        value_of_house_tl_monthly = calculate_with_monthly_growth_rate(config.value_of_house_tl, config.turkey_inflation_rate_monthly, config.years)
+                        value_of_house_tl_monthly_np = np.array(value_of_house_tl_monthly)
+                        value_of_house_usd_monthly = value_of_house_tl_monthly_np / dollar_rates_monthly_np
+                    else:
+                        value_of_house_usd_yearly = calculate_with_annual_growth_rate(config.value_of_house_tl, config.turkey_inflation_rate, config.years)
+                        value_of_house_usd_yearly_np = np.array(value_of_house_usd_yearly)
+                        value_of_house_usd_yearly = value_of_house_usd_yearly_np / dollar_rates_annual_np
+                
+
+                cumulative_rent_price_usd_yearly = calculate_cumulative_rent_price_usd(rent_price_usd_yearly)
+                cumulative_rent_price_usd_monthly = calculate_cumulative_rent_price_usd_monthly(rent_price_usd_monthly)
 
                 data = {
                     'dollar_rates_annual': dollar_rates_annual,
@@ -242,6 +299,10 @@ with col1:
                     'dollar_salaries': dollar_salaries,
                     'rent_price_usd_yearly': rent_price_usd_yearly,
                     'rent_price_usd_monthly': rent_price_usd_monthly,
+                    'cumulative_rent_price_usd_yearly': cumulative_rent_price_usd_yearly,
+                    'cumulative_rent_price_usd_monthly': cumulative_rent_price_usd_monthly,
+                    'value_of_house_usd_yearly': value_of_house_usd_yearly,
+                    'value_of_house_usd_monthly': value_of_house_usd_monthly
                 }
 
                 class Args:
@@ -256,6 +317,9 @@ with col1:
                         self.plot_monthly_payment_usd = 0 #plot_monthly_payment
                         self.use_months = use_months
                         self.plot_rent_price_usd = plot_rent_price
+                        self.plot_cumulative_rent_price_usd = plot_cumulative_rent_price
+                        self.plot_value_of_house_with_rent_price = plot_value_of_house_with_rent_price
+                        self.plot_payment_and_rent_ratio_with_salary = plot_payment_and_rent_ratio_with_salary
                 args = Args()
 
                 fig = make_plots(config, data, args)

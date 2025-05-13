@@ -31,18 +31,22 @@ class Config:
     months_to_increase: int
     initial_rent_price_tl: float
     language: str
+    usa_inflation_rate: float
+    usa_inflation_rate_monthly: float
+    turkey_inflation_rate: float
+    turkey_inflation_rate_monthly: float
 # === Hesaplamalar ===
-def calculate_dollar_rates_annual(start_dollar_tl, dollar_growth_rate_annual, years):
-    rates = [start_dollar_tl]
+def calculate_with_annual_growth_rate(start_value, growth_rate, years):
+    values = [start_value]
     for _ in range(0, years):
-        rates.append(rates[-1] * (1 + dollar_growth_rate_annual))
-    return np.array(rates)
+        values.append(values[-1] * (1 + growth_rate))
+    return np.array(values)
 
-def calculate_dollar_rates_monthly(start_dollar_tl, dollar_growth_rate_monthly, years):
-    rates = [start_dollar_tl]
+def calculate_with_monthly_growth_rate(start_value, growth_rate, years):
+    values = [start_value]
     for _ in range(0, years * 12):
-        rates.append(rates[-1] * (1 + dollar_growth_rate_monthly))
-    return np.array(rates)
+        values.append(values[-1] * (1 + growth_rate))
+    return np.array(values)
 
 def calculate_annual_payment_usd(annual_tl_payment, dollar_rates):
     dollar_rates = np.delete(dollar_rates, 0)
@@ -89,6 +93,7 @@ def calculate_monthly_payment_tl(total_credit_amount, interest_rate_of_credit, y
 
 def calculate_rent_price_usd(rent_price_tl, turkish_inflation_rate, dollar_rates):
     #dollar_rates = np.delete(dollar_rates, 0)
+    
     rent_price_yearly_tl = [rent_price_tl*12]
     for _ in range(1, len(dollar_rates)):
         rent_price_yearly_tl.append(rent_price_yearly_tl[-1] * (1 + turkish_inflation_rate))
@@ -104,6 +109,12 @@ def generate_rent_price_usd_monthly(rent_price_tl_yearly, turkish_inflation_rate
 
     return np.array(monthly_rent_prices) / dollar_rates
 
+def calculate_cumulative_rent_price_usd(rent_price_usd):
+    return np.cumsum(rent_price_usd)
+
+def calculate_cumulative_rent_price_usd_monthly(rent_price_usd_monthly):
+    return np.cumsum(rent_price_usd_monthly)
+
 def make_plots(config, data, args):
     plt.figure(figsize=(12 , 7))
     years = config.years
@@ -114,27 +125,25 @@ def make_plots(config, data, args):
     language = config.language
     info_text_tr = (
         f"VADE: {config.years:,}\n"
-        f"Evin Fiyatı: {config.value_of_house_usd:,.2f} USD\n"
     )
     info_text_en = (
         f"Loan Period: {config.years:,}\n"
-        f"House Price: {config.value_of_house_usd:,.2f} USD\n"
     )
     if args.plot_annual_payment_usd:
         y_data = data['monthly_payment_usd'] if use_months else data['annual_payment_usd']
-        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if language == 'tr' else 'Monthly Payment (USD)')
+        plt.plot(range(1, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if language == 'Türkçe' else 'Monthly Payment (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and (i) % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i + 1, y), textcoords="offset points", xytext=(0,10), ha='center')
-        title_tr += 'Aylık Ödeme (USD) ' if language == 'tr' else 'Monthly Payment (USD) '
-        title_en += 'Monthly Payment (USD) ' if language == 'en' else 'Annual Payment (USD) '
+        title_tr += 'Aylık Ödeme (USD) ' 
+        title_en += 'Monthly Payment (USD) '
         saving_title += 'monthly_' if use_months else 'annual_'
         #info_text_tr += f"Aylık Ödeme (USD): {y_data[0]:,.2f} USD\n" if language == 'tr' else f"Yıllık Ödeme (USD): {y_data[0]:,.2f} USD\n"
         #info_text_en += f"Monthly Payment (USD): {y_data[0]:,.2f} USD\n" if language == 'en' else f"Annual Payment (USD): {y_data[0]:,.2f} USD\n"
 
     if args.plot_dollar_rates:
         y_data = data['dollar_rates_monthly'] if use_months else data['dollar_rates_annual']
-        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)' if language == 'tr' else 'Dollar Rate (TL)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Dolar Kuru (TL)' if language == 'Türkçe' else 'Dollar Rate (TL)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -145,7 +154,7 @@ def make_plots(config, data, args):
 
     if args.plot_dollar_salaries:
         y_data = data['dollar_salaries']
-        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Aylık Maaş (USD)' if language == 'tr' else 'Monthly Salary (USD)')
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Aylık Maaş (USD)' if language == 'Türkçe' else 'Monthly Salary (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -162,7 +171,7 @@ def make_plots(config, data, args):
     if args.plot_cumulative_payment_usd:
         y_data = data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual']
         y_data = np.insert(y_data, 0, 0)
-        plt.plot(range(0, total_steps + 1 ), y_data, marker='o', label='Kümülatif Ödeme (USD)' if language == 'tr' else 'Cumulative Payment (USD)')
+        plt.plot(range(0, total_steps + 1 ), y_data, marker='o', label='Kümülatif Ödeme (USD)' if language == 'Türkçe' else 'Cumulative Payment (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -175,7 +184,7 @@ def make_plots(config, data, args):
     if args.plot_total_credit_amount_with_initial_noncredit_amount:
         y_data = calculate_total_credit_amount(data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual'], config.initial_noncredit_amount_usd)
         y_data = np.insert(y_data, 0, config.initial_noncredit_amount_usd)
-        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Toplam Kredi Miktarı (USD)' if language == 'Türkçe' else 'Total Credit Amount (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -186,16 +195,20 @@ def make_plots(config, data, args):
         info_text_en += f"Total Credit Amount (USD): {y_data[-1]:,.2f} USD\n"
     
     if args.plot_value_of_house_usd:
-        plt.plot(0, config.value_of_house_usd, marker='o', label='Ev Değeri (USD)')
+        y_data = data['value_of_house_usd_yearly'] if not use_months else data['value_of_house_usd_monthly']
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Ev Değeri (USD)' if language == 'Türkçe' else 'House Value (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0) or (i == len(y_data) - 1):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
         title_tr += 'Ev Değeri (USD) '
         title_en += 'House Value (USD) '
         saving_title += 'house_'
         info_text_tr += f"Ev Değeri Başlangıç Değeri (USD): {config.value_of_house_usd:,.2f} USD\n"
-        info_text_en += f"House Value (USD): {config.value_of_house_usd:,.2f} USD\n"
+        info_text_en += f"Initial House Value (USD): {config.value_of_house_usd:,.2f} USD\n"
     
     if args.plot_monthly_payment_usd:
         y_data = data['monthly_payment_usd']
-        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)')
+        plt.plot(range(0, total_steps + 1), y_data, marker='o', label='Aylık Ödeme (USD)' if language == 'Türkçe' else 'Monthly Payment (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -210,7 +223,7 @@ def make_plots(config, data, args):
             y_data = data['monthly_payment_usd'] / dollar_salaries  # monthly salary ratio
         else:
             y_data = data['annual_payment_usd'] / dollar_salaries
-        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Ödeme/Maaş Oranı')
+        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Ödeme/Maaş Oranı' if language == 'Türkçe' else 'Payment/Salary Ratio')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and (i + 1) % 12 == 0):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i + 1, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -220,7 +233,7 @@ def make_plots(config, data, args):
 
     if args.plot_rent_price_usd:
         y_data = data['rent_price_usd_yearly'] if not use_months else data['rent_price_usd_monthly']
-        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Kira Fiyatı (USD)')
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Kira Fiyatı (USD)' if language == 'Türkçe' else 'Rent Price (USD)')
         for i, y in enumerate(y_data):
             if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
                 plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
@@ -228,18 +241,59 @@ def make_plots(config, data, args):
         title_en += 'Rent Price (USD) '
         saving_title += 'rent_price_'
     
+    if args.plot_cumulative_rent_price_usd:
+        y_data = data['cumulative_rent_price_usd_yearly'] if not use_months else data['cumulative_rent_price_usd_monthly']
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Kümülatif Kira Fiyatı (USD)' if language == 'Türkçe' else 'Cumulative Rent Price (USD)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
+        title_tr += 'Kümülatif Kira Fiyatı (USD) '
+        title_en += 'Cumulative Rent Price (USD) '
+        saving_title += 'cumulative_rent_price_'
+    
+    if args.plot_payment_and_rent_ratio_with_salary:
+        dollar_salaries = data['dollar_salaries']
+        dollar_salaries = np.delete(dollar_salaries, 0)
+        rent_price_usd_yearly = data['rent_price_usd_yearly']
+        rent_price_usd_monthly = data['rent_price_usd_monthly']
+        rent_price_usd_yearly = np.delete(rent_price_usd_yearly, 0)
+        rent_price_usd_monthly = np.delete(rent_price_usd_monthly, 0)
+        if use_months:
+            y_data = (data['monthly_payment_usd'] - rent_price_usd_monthly) / dollar_salaries  # monthly salary ratio
+        else:
+            y_data = (data['annual_payment_usd'] - rent_price_usd_yearly) / dollar_salaries
+        plt.plot(range(1, len(y_data) + 1), y_data, marker='o', label='Ödeme+Kira/Maaş Oranı' if language == 'Türkçe' else 'Payment+Rent/Salary Ratio')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and (i + 1) % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i + 1, y), textcoords="offset points", xytext=(0,10), ha='center')
+        title_tr += 'Ödeme+Kira/Maaş Oranı '
+        title_en += 'Payment+Rent/Salary Ratio '
+        saving_title += 'payment_and_rent_ratio_'
+    
+    if args.plot_value_of_house_with_rent_price:
+        value_of_house_usd = data['value_of_house_usd_yearly'] if not use_months else data['value_of_house_usd_monthly']
+        rent_price_usd = data['cumulative_rent_price_usd_yearly'] if not use_months else data['cumulative_rent_price_usd_monthly']
+        y_data = value_of_house_usd + rent_price_usd
+        plt.plot(range(0, len(y_data)), y_data, marker='o', label='Ev Değeri (USD) (Kira Fiyatı Dahil)' if language == 'Türkçe' else 'House Value (USD) (Rent Price Included)')
+        for i, y in enumerate(y_data):
+            if not use_months or (use_months and i % 12 == 0):  # Annotate every 12th point in monthly view
+                plt.annotate(f'{y:,.2f}', (i, y), textcoords="offset points", xytext=(0,10), ha='center')
+        title_tr += 'Ev Değeri (USD) (Kira Fiyatı Dahil) '
+        title_en += 'House Value (USD) (Rent Price Included) '
+        saving_title += 'value_of_house_with_rent_price_'
+        
     plt.xticks(range(0, total_steps + 1, 12 if use_months else 1))
-    plt.title(title_tr.strip() if language == 'tr' else title_en.strip())
+    plt.title(title_tr.strip() if language == 'Türkçe' else title_en.strip())
     x_label_tr = 'Ay' if use_months else 'Yıl'
     x_label_en = 'Month' if use_months else 'Year'
 
-    plt.xlabel(x_label_tr if language == 'tr' else x_label_en)
+    plt.xlabel(x_label_tr if language == 'Türkçe' else x_label_en)
     plt.ylabel('USD')
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=2)
     plt.grid(True)
     plt.tight_layout()
 
-    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'tr' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='center',
+    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'Türkçe' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='center',
                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
 
     if config.save_plots:
@@ -275,12 +329,12 @@ def generate_random_values_yearly(initial_rate, years, target_avg_increase_pct):
     adjusted_yearly_increases = yearly_random_increases * scaling_factor
 
     # Step 3: Calculate yearly dollar values
-    dollar_values = [initial_rate]
+    values = [initial_rate]
     for rate in adjusted_yearly_increases:
-        new_value = dollar_values[-1] * (1 + rate)
-        dollar_values.append(new_value)
+        new_value = values[-1] * (1 + rate)
+        values.append(new_value)
 
-    return dollar_values, adjusted_yearly_increases
+    return values, adjusted_yearly_increases
 
 def generate_random_values_monthly(initial_rate, years, target_avg_increase_pct):
     target_avg_increase = target_avg_increase_pct / 100
@@ -294,11 +348,11 @@ def generate_random_values_monthly(initial_rate, years, target_avg_increase_pct)
     scaling_factor = target_avg_increase / np.mean(yearly_random_increases)
     adjusted_yearly_increases = yearly_random_increases * scaling_factor
 
-    monthly_dollar_values = [initial_rate]
-    yearly_dollar_values = [initial_rate]
+    monthly_values = [initial_rate]
+    yearly_values = [initial_rate]
 
     for year_idx in range(years):
-        year_start_value = yearly_dollar_values[-1]
+        year_start_value = yearly_values[-1]
         year_multiplier = 1 + adjusted_yearly_increases[year_idx]
 
         # Step 1: Generate random monthly multipliers around neutral (1.0)
@@ -310,12 +364,12 @@ def generate_random_values_monthly(initial_rate, years, target_avg_increase_pct)
 
         # Step 3: Apply month by month
         for m in range(12):
-            new_value = monthly_dollar_values[-1] * normalized_monthly_multipliers[m]
-            monthly_dollar_values.append(new_value)
+            new_value = monthly_values[-1] * normalized_monthly_multipliers[m]
+            monthly_values.append(new_value)
 
-        yearly_dollar_values.append(monthly_dollar_values[-1])
+        yearly_values.append(monthly_values[-1])
 
-    return yearly_dollar_values, adjusted_yearly_increases, monthly_dollar_values
+    return yearly_values, adjusted_yearly_increases, monthly_values
 
 # === Main ===
 if __name__ == "__main__":

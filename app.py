@@ -4,6 +4,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from io import BytesIO
 import numpy as np
+
 from main import (
     Config,
     calculate_with_annual_growth_rate,
@@ -41,6 +42,22 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+# Mobil görünüm için responsive ayarlar
+st.markdown("""
+    <style>
+        .stApp {
+            overflow-x: hidden;
+        }
+        @media (max-width: 768px) {
+            .stButton > button {
+                width: 100%;
+            }
+            .stDownloadButton > button {
+                width: 100%;
+            }
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Sidebar - Theme and Language
 with st.sidebar:
@@ -50,6 +67,7 @@ with st.sidebar:
     st.markdown("### 🌍 Language / Dil")
     language = st.radio("Select Language / Dil Seçin", ["English", "Türkçe"], index=0 if st.session_state.language == 'English' else 1)
     st.session_state.language = language
+
 
     # Footer tips based on language
     if language == "English":
@@ -117,6 +135,117 @@ else:
 
 st.title("🏠 Real Estate Projection" if language == "English" else "🏠 Gayrimenkul Projeksiyonu")
 
+st.markdown("### " + ("Create Custom X-Y Plot" if language == "English" else "Özel X-Y Grafik Oluştur"))
+
+plot_dollar_rates = False
+plot_annual_payment = False
+plot_dollar_salaries = False
+plot_payment_salary_ratio = False
+plot_payment_and_rent_ratio_with_salary = False
+plot_cumulative_payment = False
+plot_total_credit = False
+plot_value_of_house = False
+plot_rent_price = False
+plot_cumulative_rent_price = False
+plot_value_of_house_with_rent_price = False
+
+# Define available plot options and mapping to data dictionary keys
+available_plot_keys_en = [
+    "Years",
+    "Months"
+]
+
+available_plot_keys_tr = [
+    "Yıllar",
+    "Aylar"
+]
+
+plot_key_map_en = {
+    "Dollar Rate": "plot_dollar_rates",
+    "Mortgage Payment": "plot_annual_payment",
+    "Base Salary": "plot_dollar_salaries",
+    "Mortgage Payment / Salary Ratio": "plot_payment_salary_ratio",
+    "Mortgage Payment - Rent Price / Salary Ratio": "plot_payment_and_rent_ratio_with_salary",
+    "Cumulative Mortgage Payment": "plot_cumulative_payment",
+    "Total Paid Mortgage with Initial Non-Credit Amount": "plot_total_credit",
+    "Price of the House": "plot_value_of_house",
+    "Rent Price": "plot_rent_price",
+    "Cumulative Rent Price": "plot_cumulative_rent_price",
+    "Initial Price of the House with Rent Price": "plot_value_of_house_with_rent_price"
+}
+
+plot_key_map_tr = {
+    "Dolar Oranı": "plot_dollar_rates",
+    "Kredi Ödemesi": "plot_annual_payment",
+    "Maaş": "plot_dollar_salaries",
+    "Kredi Ödemesi / Maaş Oranı": "plot_payment_salary_ratio",
+    "Kredi Ödemesi - Kira Fiyatı / Maaş Oranı": "plot_payment_and_rent_ratio_with_salary",
+    "Toplam Ödenen Kredi": "plot_cumulative_payment",
+    "Toplam Ödenen Kredi - Başlangıç Peşinat": "plot_total_credit",
+    "Ev Fiyatı": "plot_value_of_house",
+    "Kira Fiyatı": "plot_rent_price",
+    "Toplam Kira Fiyatı": "plot_cumulative_rent_price",
+    "Ev Fiyatı - Kira Fiyatı": "plot_value_of_house_with_rent_price"
+}
+# Create dropdown selectors for X and Y axes
+col_x, col_y, col_z = st.columns(3)
+with col_x:
+    x_axis = st.selectbox("X Axis", available_plot_keys_en if language == "English" else available_plot_keys_tr, index=0)
+with col_y:
+    y_axis = st.multiselect("Y Axis (You can select multiple)", list(plot_key_map_en.keys()) if language == "English" else list(plot_key_map_tr.keys()), default=["Dollar Rate"] if language == "English" else ["Dolar Oranı"])
+with col_z:
+    z_axis = st.selectbox("Currency", ["USD"], index=0)#"USD", "TL", "EUR"
+
+if x_axis == "Months":
+    use_months = True
+else:
+    use_months = False
+
+if "Dollar Rate" in y_axis:
+    plot_dollar_rates = True
+else:
+    plot_dollar_rates = False
+if "Mortgage Payment" in y_axis:
+    plot_annual_payment = True
+else:
+    plot_annual_payment = False
+if "Base Salary" in y_axis:
+    plot_dollar_salaries = True
+else:
+    plot_dollar_salaries = False
+if "Mortgage Payment / Salary Ratio" in y_axis:
+    plot_payment_salary_ratio = True
+else:
+    plot_payment_salary_ratio = False
+if "Mortgage Payment - Rent Price / Salary Ratio" in y_axis:
+    plot_payment_and_rent_ratio_with_salary = True
+else:
+    plot_payment_and_rent_ratio_with_salary = False
+if "Cumulative Mortgage Payment" in y_axis:
+    plot_cumulative_payment = True
+else:
+    plot_cumulative_payment = False
+if "Total Paid Mortgage with Initial Non-Credit Amount" in y_axis:
+    plot_total_credit = True
+else:
+    plot_total_credit = False
+if "Price of the House" in y_axis:
+    plot_value_of_house = True
+else:
+    plot_value_of_house = False
+if "Rent Price" in y_axis:
+    plot_rent_price = True
+else:
+    plot_rent_price = False
+if "Cumulative Rent Price" in y_axis:
+    plot_cumulative_rent_price = True
+else:
+    plot_cumulative_rent_price = False
+if "Initial Price of the House with Rent Price" in y_axis:
+    plot_value_of_house_with_rent_price = True
+else:
+    plot_value_of_house_with_rent_price = False
+
 # Layout: Columns
 col1, col2, col_group = st.columns([1, 1, 4])
 
@@ -140,32 +269,20 @@ with col2:
     value_of_house_tl = st.number_input("Value of House (Million TL)" if language == "English" else "Ev Değeri (Milyon TL)", min_value=0.0, value=2.5)
     price_rent_ratio = st.number_input("Price/Rent Ratio (Years)" if language == "English" else "Fiyat/Kira Oranı (Yıl)", min_value=1, value=15)
     
-    with st.expander("📈 " + ("Advanced Parameters" if language == "English" else "Gelişmiş Parametreler")):
-        usa_inflation = st.number_input("USA Inflation Rate (%)" if language == "English" else "ABD Enflasyon Oranı (%)", min_value=0.0, value=3.0)
-        turkey_inflation = st.number_input("Turkey Inflation Rate (%)" if language == "English" else "Türkiye Enflasyon Oranı (%)", min_value=0.0, value=35.0)
-        include_inflation = st.checkbox("Include Inflation in Calculations" if language == "English" else "Hesaplamalarda Enflasyonu Dahil Et", value=False)
-        generate_random_values = st.checkbox("Generate Random Values" if language == "English" else "Rastgele Değerler Oluştur", value=False)
-        #generate_random_inflation_values = st.checkbox("Generate Random Inflation Values" if language == "English" else "Rastgele Enflasyon Değerleri Oluştur", value=False)
-        use_months = st.checkbox("Use Monthly View" if language == "English" else "Aylık Görünüm Kullan", value=False)
+    st.markdown("### 📈 " + ("Advanced Parameters" if language == "English" else "Gelişmiş Parametreler"))
+    usa_inflation = st.number_input("USA Inflation Rate (%)" if language == "English" else "ABD Enflasyon Oranı (%)", min_value=0.0, value=3.0)
+    turkey_inflation = st.number_input("Turkey Inflation Rate (%)" if language == "English" else "Türkiye Enflasyon Oranı (%)", min_value=0.0, value=35.0)
+    include_inflation = st.checkbox("Include Inflation in Calculations" if language == "English" else "Hesaplamalarda Enflasyonu Dahil Et", value=False)
+    generate_random_values = st.checkbox("Generate Random Values" if language == "English" else "Rastgele Değerler Oluştur", value=False)
+    #generate_random_inflation_values = st.checkbox("Generate Random Inflation Values" if language == "English" else "Rastgele Enflasyon Değerleri Oluştur", value=False)
+        #use_months = st.checkbox("Use Monthly View" if language == "English" else "Aylık Görünüm Kullan", value=False)
     #st.markdown("### 📊 Plot Options")
     
     save_plots = False #st.checkbox("Save Plots to File", value=False)
     
-    st.markdown("### 📌 " + ("Select Plots" if language == "English" else "Grafikleri Seç"))
-    plot_dollar_rates = st.checkbox("USD/TL Rates" if language == "English" else "USD/TL Kurları", value=False)
-    plot_annual_payment = st.checkbox("Mortgage Payment (USD)" if language == "English" else "Ev kredisi Ödemesi (USD)", value=False)
-    plot_dollar_salaries = st.checkbox("Base Salary (USD)" if language == "English" else "Temel Maaş (USD)", value=False)
-    plot_payment_salary_ratio = st.checkbox("Mortgage Payment / Salary Ratio" if language == "English" else "Ev kredisi Ödemesi / Maaş Oranı", value=False)
-    plot_payment_and_rent_ratio_with_salary = st.checkbox("Mortgage Payment - Rent Price / Salary Ratio" if language == "English" else "Ev kredisi Ödemesi - Kira Fiyatı / Maaş Oranı", value=False)
-    plot_cumulative_payment = st.checkbox("Cumulative Mortgage Payment (USD)" if language == "English" else "Kümülatif Ev kredisi Ödemesi (USD)", value=False)
-    plot_total_credit = st.checkbox("Total Paid Mortgage with Initial Non-Credit Amount (USD)" if language == "English" else "Toplam Ödenen Ev kredisi (USD)", value=False)
-    plot_value_of_house = st.checkbox("Price of the House (USD)" if language == "English" else "Başlangıç Ev Fiyatı (USD)", value=False)
-    plot_rent_price = st.checkbox("Rent Price (USD)" if language == "English" else "Kira Fiyatı (USD)", value=False)
-    plot_cumulative_rent_price = st.checkbox("Cumulative Rent Price (USD)" if language == "English" else "Kümülatif Kira Fiyatı (USD)", value=False)
-    plot_value_of_house_with_rent_price = st.checkbox("Initial Price of the House with Rent Price (USD)" if language == "English" else "Başlangıç Ev Fiyatı (USD) (Kira Fiyatı Dahil)", value=False)
-    #plot_monthly_payment = st.checkbox("Monthly Payment (USD)", value=False)
 
-with col1:
+
+with col2:
     # Generate button with spinner
     if st.button("🚀 " + ("Generate Plot" if language == "English" else "Grafik Oluştur")):
         with st.spinner("Calculating and generating plot..." if language == "English" else "Hesaplanıyor ve grafik oluşturuluyor..."):
@@ -339,11 +456,11 @@ with col1:
 # Display the last generated plot if it exists
 if st.session_state.last_fig is not None:
     with col_group:
-        st.pyplot(st.session_state.last_fig)
+        st.pyplot(st.session_state.last_fig, use_container_width=True)
         
         # Only show download button if there's a plot
         if st.session_state.last_plot is not None:
-            with col1:
+            with col2:
                 st.download_button(
                     label="📥 " + ("Download Plot" if language == "English" else "Grafiği İndir"),
                     data=st.session_state.last_plot,

@@ -121,13 +121,22 @@ def make_plots(config, data, args):
     use_months = args.use_months
     dollar_growth_rate = config.dollar_growth_rate_annual if not use_months else config.dollar_growth_rate_monthly
     total_steps = years * 12 if use_months else years
+    initial_dollar_rate = data['dollar_rates_monthly'][0] if use_months else data['dollar_rates_annual'][0]
     title_tr, title_en, saving_title = '', '', ''
     language = config.language
     info_text_tr = (
         f"VADE: {config.years:,}\n"
+        f"Ortalama Dolar Kuru Artış Oranı: {dollar_growth_rate*100:,.2f}%\n"
+        f"Başlangıç Dolar Kuru (TL): {initial_dollar_rate:,.2f} TL\n"
+        f"Türkiye Enflasyon Oranı: {config.turkey_inflation_rate*100:,.2f}%\n"
+        f"Amerika Enflasyon Oranı: {config.usa_inflation_rate*100:,.2f}%\n"
     )
     info_text_en = (
         f"Loan Period: {config.years:,}\n"
+        f"Average Dollar Increase Rate: {dollar_growth_rate*100:,.2f}%\n"
+        f"Initial Dollar Rate (TL): {initial_dollar_rate:,.2f} TL\n"
+        f"Turkey Inflation Rate: {config.turkey_inflation_rate*100:,.2f}%\n"
+        f"USA Inflation Rate: {config.usa_inflation_rate*100:,.2f}%\n"
     )
     if args.plot_annual_payment_usd:
         y_data = data['monthly_payment_usd'] if use_months else data['annual_payment_usd']
@@ -167,6 +176,8 @@ def make_plots(config, data, args):
         saving_title += 'salary_'
         info_text_tr += f"Euro/$ Kuru: {config.euro_dollar_rate:,.2f}\n"
         info_text_en += f"Euro/$ Rate: {config.euro_dollar_rate:,.2f}\n"
+        info_text_tr += f"Başlangıç Maaş (USD): {y_data[0]:,.2f} USD\n"
+        info_text_en += f"Initial Salary (USD): {y_data[0]:,.2f} USD\n"
 
     if args.plot_cumulative_payment_usd:
         y_data = data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual']
@@ -240,6 +251,8 @@ def make_plots(config, data, args):
         title_tr += 'Kira Fiyatı (USD) '
         title_en += 'Rent Price (USD) '
         saving_title += 'rent_price_'
+        info_text_tr += f"Başlangıç Kira Fiyatı (TL): {y_data[0]*initial_dollar_rate:,.2f} TL\n"
+        info_text_en += f"Initial Rent Price (TL): {y_data[0]*initial_dollar_rate:,.2f} TL\n"
     
     if args.plot_cumulative_rent_price_usd:
         y_data = data['cumulative_rent_price_usd_yearly'] if not use_months else data['cumulative_rent_price_usd_monthly']
@@ -250,6 +263,8 @@ def make_plots(config, data, args):
         title_tr += 'Kümülatif Kira Fiyatı (USD) '
         title_en += 'Cumulative Rent Price (USD) '
         saving_title += 'cumulative_rent_price_'
+        info_text_tr += f"Başlangıç Kira Fiyatı (TL): {y_data[0]*initial_dollar_rate:,.2f} TL\n"
+        info_text_en += f"Initial Rent Price (TL): {y_data[0]*initial_dollar_rate:,.2f} TL\n"
     
     if args.plot_payment_and_rent_ratio_with_salary:
         dollar_salaries = data['dollar_salaries']
@@ -293,7 +308,7 @@ def make_plots(config, data, args):
     plt.grid(True)
     plt.tight_layout()
 
-    plt.gcf().text(0.98, 0.02, info_text_tr if language == 'Türkçe' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='center',
+    plt.gcf().text(0.9, -0.05, info_text_tr if language == 'Türkçe' else info_text_en, fontsize=9, verticalalignment='bottom', horizontalalignment='center',
                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
 
     if config.save_plots:

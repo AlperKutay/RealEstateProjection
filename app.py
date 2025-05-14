@@ -75,7 +75,7 @@ with st.sidebar:
         st.markdown("""
         ### **How to Use:**
         1. Adjust the parameters in the control panel
-        2. Select your salary currency (EUR, USD, or TL)
+        2. Select your salary currency (For now only USD)
         3. Choose whether to include inflation in calculations
         4. Select which plots you want to display
         5. Click "Generate Plot" to create the visualization
@@ -91,7 +91,7 @@ with st.sidebar:
         st.markdown("""
         ### **Kullanım:**
         1. Kontrol panelinden parametreleri ayarlayın
-        2. Maaş para biriminizi seçin (EUR, USD veya TL)
+        2. Maaş para biriminizi seçin (Simdilik sadece USD)
         3. Hesaplamalarda enflasyonu dahil etmek isteyip istemediğinizi seçin
         4. Gösterilecek grafikleri seçin
         5. Görselleştirmeyi oluşturmak için "Grafik Oluştur" düğmesine tıklayın
@@ -183,8 +183,8 @@ available_plot_keys_en = [
 ]
 
 available_plot_keys_tr = [
-    "Yıllar",
-    "Aylar"
+    "Yıllık",
+    "Aylık"
 ]
 
 plot_key_map_en = {
@@ -202,7 +202,7 @@ plot_key_map_en = {
 }
 
 plot_key_map_tr = {
-    "Dolar Oranı": "plot_dollar_rates",
+    "Dolar TL": "plot_dollar_rates",
     "Kredi Ödemesi": "plot_annual_payment",
     "Maaş": "plot_dollar_salaries",
     "Kredi Ödemesi / Maaş Oranı": "plot_payment_salary_ratio",
@@ -211,7 +211,7 @@ plot_key_map_tr = {
     "Toplam Ödenen Kredi - Başlangıç Peşinat": "plot_total_credit",
     "Ev Fiyatı": "plot_value_of_house",
     "Kira Fiyatı": "plot_rent_price",
-    "Toplam Kira Fiyatı": "plot_cumulative_rent_price",
+    "Toplam Elde Edilen Kira Fiyatı": "plot_cumulative_rent_price",
     "Ev Fiyatı - Kira Fiyatı": "plot_value_of_house_with_rent_price"
 }
 
@@ -229,67 +229,48 @@ plot_stock_market = {
 # Create dropdown selectors for X and Y axes
 col_x, col_y1, col_y2, col_z = st.columns(4)
 with col_x:
-    x_axis = st.selectbox("X Axis", available_plot_keys_en if language == "English" else available_plot_keys_tr, index=0)
+    x_axis = st.selectbox("Time Period" if language == "English" else "Zaman Periyodu", available_plot_keys_en if language == "English" else available_plot_keys_tr, index=0)
 with col_y1:
-    y_axis = st.multiselect("Y Axis (You can select multiple)", list(plot_key_map_en.keys()) if language == "English" else list(plot_key_map_tr.keys()), default=["Dollar Rate"] if language == "English" else ["Dolar Oranı"])
+    y_axis = st.multiselect("Select Plot" if language == "English" else "Grafik Seçin", list(plot_key_map_en.keys()) if language == "English" else list(plot_key_map_tr.keys()), default=["Dollar Rate"] if language == "English" else ["Dolar TL"])
 with col_y2:
-    y_axis2 = st.multiselect("Y Axis for Stock Market (You can select multiple)", list(plot_stock_market.keys()), default=[])
+    y_axis2 = st.multiselect("Select Stock Market Plot" if language == "English" else "Hisse Senedi Grafiği Seçin", list(plot_stock_market.keys()), default=[])
 with col_z:
     z_axis = st.selectbox("Currency", ["USD"], index=0)#"USD", "TL", "EUR"
 
-if x_axis == "Months":
+if x_axis == "Months" or x_axis == "Aylık":
     use_months = True
 else:
     use_months = False
 
-if "Dollar Rate" in y_axis:
-    plot_dollar_rates = True
-if "Mortgage Payment" in y_axis:
-    plot_annual_payment = True
-if "Base Salary" in y_axis:
-    plot_dollar_salaries = True
-if "Mortgage Payment / Salary Ratio" in y_axis:
-    plot_payment_salary_ratio = True
-if "Mortgage Payment - Rent Price / Salary Ratio" in y_axis:
-    plot_payment_and_rent_ratio_with_salary = True
-if "Cumulative Mortgage Payment" in y_axis:
-    plot_cumulative_payment = True
-if "Total Paid Mortgage with Initial Non-Credit Amount" in y_axis:
-    plot_total_credit = True
-if "Price of the House" in y_axis:
-    plot_value_of_house = True
-if "Rent Price" in y_axis:
-    plot_rent_price = True
-if "Cumulative Rent Price" in y_axis:
-    plot_cumulative_rent_price = True
-if "Initial Price of the House with Rent Price" in y_axis:
-    plot_value_of_house_with_rent_price = True
+# Use the correct key maps based on language
+plot_key_map = plot_key_map_en if language == "English" else plot_key_map_tr
 
-if "XAUUSD" in y_axis2:
-    plot_gold_price = True
-    average_gold_growth, current_gold_price = fetch_and_calculate("XAUUSD", False)
-if "XAGUSD" in y_axis2:
-    plot_silver_price = True
-    average_silver_growth, current_silver_price = fetch_and_calculate("XAGUSD", False)
-if "BTC" in y_axis2:
-    plot_btc_price = True
-    average_btc_growth, current_btc_price = fetch_and_calculate("BTC", False)
-if "ETH" in y_axis2:
-    plot_eth_price = True
-    average_eth_growth, current_eth_price = fetch_and_calculate("ETH", False)
-if "XU100" in y_axis2:
-    plot_xu100_price = True
-    average_xu100_growth, current_xu100_price = fetch_and_calculate("XU100", False)
-if "XU30" in y_axis2:
-    plot_xu30_price = True
-    average_xu30_growth, current_xu30_price = fetch_and_calculate("XU30", False)
-if "NASDAQ" in y_axis2:
-    plot_nasdaq_price = True
-    average_nasdaq_growth, current_nasdaq_price = fetch_and_calculate("NASDAQ", False)
-if "S&P" in y_axis2:
-    plot_sp_price = True
-    average_sp_growth, current_sp_price = fetch_and_calculate("S&P", False)
+# Process y_axis selections using the appropriate language map
+for y_item in y_axis:
+    if y_item in plot_key_map:
+        plot_var_name = plot_key_map[y_item]
+        globals()[plot_var_name] = True
 
+# Process stock market selections
+for y_item in y_axis2:
+    if y_item in plot_stock_market:
+        globals()[plot_stock_market[y_item]] = True
+        if y_item == "XAUUSD":
+            average_gold_growth, current_gold_price = fetch_and_calculate("XAUUSD", False)
+        elif y_item == "XAGUSD":
+            average_silver_growth, current_silver_price = fetch_and_calculate("XAGUSD", False)
+        elif y_item == "BTC":
+            average_btc_growth, current_btc_price = fetch_and_calculate("BTC", False)
+        elif y_item == "ETH":
+            average_eth_growth, current_eth_price = fetch_and_calculate("ETH", False)
+        elif y_item == "XU100":
+            average_xu100_growth, current_xu100_price = fetch_and_calculate("XU100", False)
+        elif y_item == "XU30":
+            average_xu30_growth, current_xu30_price = fetch_and_calculate("XU30", False)
+        elif y_item == "NASDAQ":
+            average_nasdaq_growth, current_nasdaq_price = fetch_and_calculate("NASDAQ", False)
+        elif y_item == "S&P":
+            average_sp_growth, current_sp_price = fetch_and_calculate("S&P", False)
 
 # Layout: Columns
 col1, col2, col_group = st.columns([1, 1, 4])
@@ -423,12 +404,20 @@ with col2:
                 if use_months:
                     monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
                     cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
-                    dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
-                    dollar_salaries = generate_monthly_salaries_from_yearly(dollar_salaries, months_to_increase)
+                    if generate_random_values:
+                        same_currency_salaries , _ = generate_random_values_yearly(config.start_salary_base, config.years, config.salary_growth_annual * 100)
+                        dollar_salaries = generate_monthly_salaries_from_yearly(same_currency_salaries, months_to_increase, dollar_rates_monthly, config.euro_dollar_rate, config.salary_currency)
+                    else:
+                        dollar_salaries,same_currency_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
+                        dollar_salaries = generate_monthly_salaries_from_yearly(same_currency_salaries, months_to_increase, dollar_rates_monthly, config.euro_dollar_rate, config.salary_currency)
+                    
                 else:
                     annual_payment_usd = calculate_annual_payment_usd(config.annual_tl_payment, dollar_rates_annual)
                     cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
-                    dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual)                
+                    if generate_random_values:
+                        dollar_salaries , _ = generate_random_values_yearly(config.start_salary_base, config.years, config.salary_growth_annual * 100)
+                    else:
+                        dollar_salaries, _  = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual) 
                 
                 if generate_random_values:
                     rent_price_yearly_tl,adjusted_yearly_turkey_inflation_rates = generate_random_values_yearly(config.initial_rent_price_tl*12, config.years, turkey_inflation)
@@ -438,7 +427,7 @@ with col2:
                     value_of_house_usd_yearly = value_of_house_tl_yearly / dollar_rates_annual_np
                     if use_months:
                         # Use the initial rent price, not the array
-                        rent_price_monthly_tl_values, _, rent_price_monthly_tl = generate_random_values_monthly(config.initial_rent_price_tl, config.years, turkey_inflation)
+                        rent_price_monthly_tl = generate_monthly_salaries_from_yearly(rent_price_yearly_tl_np, 12, dollar_rates_monthly, config.euro_dollar_rate, "USD")#Çalışsın dıye boyle yazdım 
                         _, _, value_of_house_tl_monthly = generate_random_values_monthly(config.value_of_house_tl, config.years, turkey_inflation)
                         rent_price_monthly_tl_np = np.array(rent_price_monthly_tl)
                         dollar_rates_monthly_np = np.array(dollar_rates_monthly)

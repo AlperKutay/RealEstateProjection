@@ -81,7 +81,6 @@ python stock_market_helper.py --asset XU100 --months
 | XAGUSD | Silver (USD)            |
 | BTC    | Bitcoin                 |
 | ETH    | Ethereum                |
-| XRP    | Ripple                  |
 | NASDAQ | Nasdaq Index            |
 | S\&P   | S\&P 500 Index          |
 | XU100  | BIST 100 (USD-adjusted) |

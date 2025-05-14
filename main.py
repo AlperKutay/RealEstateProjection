@@ -230,7 +230,63 @@ def make_plots(config, data, args):
         plot_series(label('Ev Değeri (USD) (Kira Fiyatı Dahil)', 'House Value (USD) (Rent Price Included)'), y)
         title.append(label('Ev Değeri (USD) (Kira Fiyatı Dahil)', 'House Value (USD) (Rent Price Included)'))
         saving_title.append('value_of_house_with_rent_price_')
+    
+    if args.plot_gold_price:
+        y = data['gold_price']
+        plot_series(label('Altın Fiyatı (USD)', 'Gold Price (USD)'), y)
+        title.append(label('Altın Fiyatı (USD)', 'Gold Price (USD)'))
+        saving_title.append('gold_price_')
+        info_lines.append(("Average Gold Growth Yearly", data['average_gold_growth']))
 
+    if args.plot_silver_price:
+        y = data['silver_price']
+        plot_series(label('Gümüş Fiyatı (USD)', 'Silver Price (USD)'), y)
+        title.append(label('Gümüş Fiyatı (USD)', 'Silver Price (USD)'))
+        saving_title.append('silver_price_')
+        info_lines.append(("Average Silver Growth Yearly", data['average_silver_growth']))
+
+    if args.plot_eth_price:
+        y = data['eth_price']
+        plot_series(label('ETH Fiyatı (USD)', 'ETH Price (USD)'), y)
+        title.append(label('ETH Fiyatı (USD)', 'ETH Price (USD)'))
+        saving_title.append('eth_price_')
+        info_lines.append(("Average ETH Growth Yearly", data['average_eth_growth']))
+
+    if args.plot_btc_price:
+        y = data['btc_price']
+        plot_series(label('BTC Fiyatı (USD)', 'BTC Price (USD)'), y)
+        title.append(label('BTC Fiyatı (USD)', 'BTC Price (USD)'))
+        saving_title.append('btc_price_')
+        info_lines.append(("Average BTC Growth Yearly", data['average_btc_growth']))
+
+    if args.plot_nasdaq_price:
+        y = data['nasdaq_price']
+        plot_series(label('NASDAQ Fiyatı (USD)', 'NASDAQ Price (USD)'), y)
+        title.append(label('NASDAQ Fiyatı (USD)', 'NASDAQ Price (USD)'))
+        saving_title.append('nasdaq_price_')
+        info_lines.append(("Average NASDAQ Growth Yearly", data['average_nasdaq_growth']))
+
+    if args.plot_sp_price:
+        y = data['sp_price']
+        plot_series(label('S&P 500 Fiyatı (USD)', 'S&P 500 Price (USD)'), y)
+        title.append(label('S&P 500 Fiyatı (USD)', 'S&P 500 Price (USD)'))
+        saving_title.append('sp_price_')
+        info_lines.append(("Average S&P 500 Growth Yearly", data['average_sp_growth']))
+
+    if args.plot_xu100_price:
+        y = data['xu100_price']
+        plot_series(label('XU100 Fiyatı (USD)', 'XU100 Price (USD)'), y)
+        title.append(label('XU100 Fiyatı (USD)', 'XU100 Price (USD)'))
+        saving_title.append('xu100_price_')
+        info_lines.append(("Average XU100 Growth Yearly", data['average_xu100_growth']))
+
+    if args.plot_xu30_price:
+        y = data['xu30_price']
+        plot_series(label('XU30 Fiyatı (USD)', 'XU30 Price (USD)'), y)
+        title.append(label('XU30 Fiyatı (USD)', 'XU30 Price (USD)'))
+        saving_title.append('xu30_price_')
+        info_lines.append(("Average XU30 Growth Yearly", data['average_xu30_growth']))
+        
     plt.xticks(range(0, total_steps + 1, 12 if use_months else 1))
     plt.title(' '.join(title))
     plt.xlabel(label('Ay', 'Month') if use_months else label('Yıl', 'Year'))

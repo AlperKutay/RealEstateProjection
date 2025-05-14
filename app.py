@@ -4,6 +4,7 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 from io import BytesIO
 import numpy as np
+from stock_market_helper import fetch_and_calculate
 
 from main import (
     Config,
@@ -149,6 +150,32 @@ plot_rent_price = False
 plot_cumulative_rent_price = False
 plot_value_of_house_with_rent_price = False
 
+plot_gold_price = False
+plot_silver_price = False
+plot_btc_price = False
+plot_eth_price = False
+plot_xu100_price = False
+plot_xu30_price = False
+plot_nasdaq_price = False
+plot_sp_price = False
+
+average_gold_growth = None
+average_silver_growth = None
+average_btc_growth = None
+average_eth_growth = None
+average_xu100_growth = None
+average_xu30_growth = None
+average_nasdaq_growth = None
+average_sp_growth = None
+
+current_gold_price = None
+current_silver_price = None
+current_btc_price = None
+current_eth_price = None
+current_xu100_price = None
+current_xu30_price = None
+current_nasdaq_price = None
+current_sp_price = None
 # Define available plot options and mapping to data dictionary keys
 available_plot_keys_en = [
     "Years",
@@ -187,12 +214,26 @@ plot_key_map_tr = {
     "Toplam Kira Fiyatı": "plot_cumulative_rent_price",
     "Ev Fiyatı - Kira Fiyatı": "plot_value_of_house_with_rent_price"
 }
+
+plot_stock_market = {
+    "XAUUSD": "plot_gold_price",
+    "XAGUSD": "plot_silver_price",
+    "BTC": "plot_btc_price",
+    "ETH": "plot_eth_price",
+    "XU100": "plot_xu100_price",
+    "XU30": "plot_xu30_price",
+    "NASDAQ": "plot_nasdaq_price",
+    "S&P": "plot_sp_price"
+}
+
 # Create dropdown selectors for X and Y axes
-col_x, col_y, col_z = st.columns(3)
+col_x, col_y1, col_y2, col_z = st.columns(4)
 with col_x:
     x_axis = st.selectbox("X Axis", available_plot_keys_en if language == "English" else available_plot_keys_tr, index=0)
-with col_y:
+with col_y1:
     y_axis = st.multiselect("Y Axis (You can select multiple)", list(plot_key_map_en.keys()) if language == "English" else list(plot_key_map_tr.keys()), default=["Dollar Rate"] if language == "English" else ["Dolar Oranı"])
+with col_y2:
+    y_axis2 = st.multiselect("Y Axis for Stock Market (You can select multiple)", list(plot_stock_market.keys()), default=[])
 with col_z:
     z_axis = st.selectbox("Currency", ["USD"], index=0)#"USD", "TL", "EUR"
 
@@ -203,48 +244,52 @@ else:
 
 if "Dollar Rate" in y_axis:
     plot_dollar_rates = True
-else:
-    plot_dollar_rates = False
 if "Mortgage Payment" in y_axis:
     plot_annual_payment = True
-else:
-    plot_annual_payment = False
 if "Base Salary" in y_axis:
     plot_dollar_salaries = True
-else:
-    plot_dollar_salaries = False
 if "Mortgage Payment / Salary Ratio" in y_axis:
     plot_payment_salary_ratio = True
-else:
-    plot_payment_salary_ratio = False
 if "Mortgage Payment - Rent Price / Salary Ratio" in y_axis:
     plot_payment_and_rent_ratio_with_salary = True
-else:
-    plot_payment_and_rent_ratio_with_salary = False
 if "Cumulative Mortgage Payment" in y_axis:
     plot_cumulative_payment = True
-else:
-    plot_cumulative_payment = False
 if "Total Paid Mortgage with Initial Non-Credit Amount" in y_axis:
     plot_total_credit = True
-else:
-    plot_total_credit = False
 if "Price of the House" in y_axis:
     plot_value_of_house = True
-else:
-    plot_value_of_house = False
 if "Rent Price" in y_axis:
     plot_rent_price = True
-else:
-    plot_rent_price = False
 if "Cumulative Rent Price" in y_axis:
     plot_cumulative_rent_price = True
-else:
-    plot_cumulative_rent_price = False
 if "Initial Price of the House with Rent Price" in y_axis:
     plot_value_of_house_with_rent_price = True
-else:
-    plot_value_of_house_with_rent_price = False
+
+if "XAUUSD" in y_axis2:
+    plot_gold_price = True
+    average_gold_growth, current_gold_price = fetch_and_calculate("XAUUSD", False)
+if "XAGUSD" in y_axis2:
+    plot_silver_price = True
+    average_silver_growth, current_silver_price = fetch_and_calculate("XAGUSD", False)
+if "BTC" in y_axis2:
+    plot_btc_price = True
+    average_btc_growth, current_btc_price = fetch_and_calculate("BTC", False)
+if "ETH" in y_axis2:
+    plot_eth_price = True
+    average_eth_growth, current_eth_price = fetch_and_calculate("ETH", False)
+if "XU100" in y_axis2:
+    plot_xu100_price = True
+    average_xu100_growth, current_xu100_price = fetch_and_calculate("XU100", False)
+if "XU30" in y_axis2:
+    plot_xu30_price = True
+    average_xu30_growth, current_xu30_price = fetch_and_calculate("XU30", False)
+if "NASDAQ" in y_axis2:
+    plot_nasdaq_price = True
+    average_nasdaq_growth, current_nasdaq_price = fetch_and_calculate("NASDAQ", False)
+if "S&P" in y_axis2:
+    plot_sp_price = True
+    average_sp_growth, current_sp_price = fetch_and_calculate("S&P", False)
+
 
 # Layout: Columns
 col1, col2, col_group = st.columns([1, 1, 4])
@@ -274,6 +319,7 @@ with col2:
     turkey_inflation = st.number_input("Turkey Inflation Rate (%)" if language == "English" else "Türkiye Enflasyon Oranı (%)", min_value=0.0, value=35.0)
     include_inflation = st.checkbox("Include Inflation in Calculations" if language == "English" else "Hesaplamalarda Enflasyonu Dahil Et", value=False)
     generate_random_values = st.checkbox("Generate Random Values" if language == "English" else "Rastgele Değerler Oluştur", value=False)
+    project_initial_money_with_selected_stock_market = st.checkbox("Project Initial Money with Selected Financial Asset" if language == "English" else "Başlangıç Parasıyla Seçilen Finansal Varlığı Satın Al", value=False)
     #generate_random_inflation_values = st.checkbox("Generate Random Inflation Values" if language == "English" else "Rastgele Enflasyon Değerleri Oluştur", value=False)
         #use_months = st.checkbox("Use Monthly View" if language == "English" else "Aylık Görünüm Kullan", value=False)
     #st.markdown("### 📊 Plot Options")
@@ -335,6 +381,15 @@ with col2:
                 cumulative_rent_price_usd_monthly = None
                 value_of_house_usd_yearly = None
                 value_of_house_usd_monthly = None
+                
+                gold_price = None
+                silver_price = None
+                btc_price = None
+                eth_price = None
+                xu100_price = None
+                xu30_price = None
+                nasdaq_price = None
+                sp_price = None
 
                 if not include_inflation:
                     config.turkey_inflation_rate = 0.001
@@ -402,6 +457,109 @@ with col2:
                         value_of_house_usd_yearly_np = np.array(value_of_house_usd_yearly)
                         value_of_house_usd_yearly = value_of_house_usd_yearly_np / dollar_rates_annual_np
                 
+                if current_gold_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_gold_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, gold_price = generate_random_values_monthly(current_gold_price, config.years, average_gold_growth)
+                    elif not generate_random_values and use_months:
+                        gold_price = calculate_with_monthly_growth_rate(current_gold_price, (((average_gold_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        gold_price = calculate_with_annual_growth_rate(current_gold_price, average_gold_growth / 100, config.years)
+                    else:
+                        gold_price , _ = generate_random_values_yearly(current_gold_price, config.years, average_gold_growth)
+                    
+                    
+
+                if current_silver_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_silver_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, silver_price = generate_random_values_monthly(current_silver_price, config.years, average_silver_growth)
+                    elif not generate_random_values and use_months:
+                        silver_price = calculate_with_monthly_growth_rate(current_silver_price, (((average_silver_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        silver_price = calculate_with_annual_growth_rate(current_silver_price, average_silver_growth / 100, config.years)
+                    else:
+                        silver_price , _  = generate_random_values_yearly(current_silver_price, config.years, average_silver_growth)
+
+  
+
+                if current_btc_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_btc_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, btc_price = generate_random_values_monthly(current_btc_price, config.years, average_btc_growth)
+                    elif not generate_random_values and use_months:
+                        btc_price = calculate_with_monthly_growth_rate(current_btc_price, (((average_btc_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        btc_price = calculate_with_annual_growth_rate(current_btc_price, average_btc_growth / 100, config.years)
+                    else:
+                        btc_price , _  = generate_random_values_yearly(current_btc_price, config.years, average_btc_growth)
+
+                if current_eth_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_eth_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, eth_price = generate_random_values_monthly(current_eth_price, config.years, average_eth_growth)
+                    elif not generate_random_values and use_months:
+                        eth_price = calculate_with_monthly_growth_rate(current_eth_price, (((average_eth_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        eth_price = calculate_with_annual_growth_rate(current_eth_price, average_eth_growth / 100, config.years)
+                    else:
+                        eth_price , _  = generate_random_values_yearly(current_eth_price, config.years, average_eth_growth)
+
+
+                if current_xu100_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_xu100_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, xu100_price = generate_random_values_monthly(current_xu100_price, config.years, average_xu100_growth)
+                    elif not generate_random_values and use_months:
+                        xu100_price = calculate_with_monthly_growth_rate(current_xu100_price, (((average_xu100_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        xu100_price = calculate_with_annual_growth_rate(current_xu100_price, average_xu100_growth / 100, config.years)
+                    else:
+                        xu100_price , _  = generate_random_values_yearly(current_xu100_price, config.years, average_xu100_growth)
+
+                if current_xu30_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_xu30_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, xu30_price = generate_random_values_monthly(current_xu30_price, config.years, average_xu30_growth)
+                    elif not generate_random_values and use_months:
+                        xu30_price = calculate_with_monthly_growth_rate(current_xu30_price, (((average_xu30_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        xu30_price = calculate_with_annual_growth_rate(current_xu30_price, average_xu30_growth / 100, config.years)
+                    else:
+                        xu30_price , _  = generate_random_values_yearly(current_xu30_price, config.years, average_xu30_growth)
+
+
+                if current_nasdaq_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_nasdaq_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, nasdaq_price = generate_random_values_monthly(current_nasdaq_price, config.years, average_nasdaq_growth)
+                    elif not generate_random_values and use_months:
+                        nasdaq_price = calculate_with_monthly_growth_rate(current_nasdaq_price, (((average_nasdaq_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        nasdaq_price = calculate_with_annual_growth_rate(current_nasdaq_price, average_nasdaq_growth / 100, config.years)
+                    else:
+                        nasdaq_price , _  = generate_random_values_yearly(current_nasdaq_price, config.years, average_nasdaq_growth)
+
+
+                if current_sp_price is not None:
+                    if project_initial_money_with_selected_stock_market:
+                        current_sp_price = config.initial_noncredit_amount_usd 
+                    if use_months and generate_random_values:
+                        _, _, sp_price = generate_random_values_monthly(current_sp_price, config.years, average_sp_growth)
+                    elif not generate_random_values and use_months:
+                        sp_price = calculate_with_monthly_growth_rate(current_sp_price, (((average_sp_growth / 100) + 1) ** (1/12)) - 1, config.years)
+                    elif not generate_random_values and not use_months:
+                        sp_price = calculate_with_annual_growth_rate(current_sp_price, average_sp_growth / 100, config.years)
+                    else:
+                        sp_price , _  = generate_random_values_yearly(current_sp_price, config.years, average_sp_growth)
+
 
                 cumulative_rent_price_usd_yearly = calculate_cumulative_rent_price_usd(rent_price_usd_yearly)
                 cumulative_rent_price_usd_monthly = calculate_cumulative_rent_price_usd_monthly(rent_price_usd_monthly)
@@ -419,7 +577,23 @@ with col2:
                     'cumulative_rent_price_usd_yearly': cumulative_rent_price_usd_yearly,
                     'cumulative_rent_price_usd_monthly': cumulative_rent_price_usd_monthly,
                     'value_of_house_usd_yearly': value_of_house_usd_yearly,
-                    'value_of_house_usd_monthly': value_of_house_usd_monthly
+                    'value_of_house_usd_monthly': value_of_house_usd_monthly,
+                    'gold_price': gold_price,
+                    'silver_price': silver_price,
+                    'btc_price': btc_price,
+                    'eth_price': eth_price,
+                    'xu100_price': xu100_price,
+                    'xu30_price': xu30_price,
+                    'nasdaq_price': nasdaq_price,
+                    'sp_price': sp_price,
+                    'average_gold_growth': average_gold_growth,
+                    'average_silver_growth': average_silver_growth,
+                    'average_btc_growth': average_btc_growth,
+                    'average_eth_growth': average_eth_growth,
+                    'average_xu100_growth': average_xu100_growth,
+                    'average_xu30_growth': average_xu30_growth,
+                    'average_nasdaq_growth': average_nasdaq_growth,
+                    'average_sp_growth': average_sp_growth,
                 }
 
                 class Args:
@@ -437,6 +611,15 @@ with col2:
                         self.plot_cumulative_rent_price_usd = plot_cumulative_rent_price
                         self.plot_value_of_house_with_rent_price = plot_value_of_house_with_rent_price
                         self.plot_payment_and_rent_ratio_with_salary = plot_payment_and_rent_ratio_with_salary
+                        self.plot_gold_price = plot_gold_price
+                        self.plot_silver_price = plot_silver_price
+                        self.plot_btc_price = plot_btc_price
+                        self.plot_eth_price = plot_eth_price
+                        self.plot_xu100_price = plot_xu100_price
+                        self.plot_xu30_price = plot_xu30_price
+                        self.plot_nasdaq_price = plot_nasdaq_price
+                        self.plot_sp_price = plot_sp_price
+                        
                 args = Args()
 
                 fig = make_plots(config, data, args)

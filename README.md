@@ -1,84 +1,120 @@
 # 🏠 Real Estate Projection
 
-A powerful web application for analyzing and projecting real estate investments, mortgage payments, and salary growth over time. The application supports both English and Turkish languages.
+A powerful interactive simulation tool for projecting real estate investment performance in Türkiye, considering currency devaluation, inflation, salaries, loan parameters, and financial asset returns — including gold, silver, BTC, ETH, NASDAQ, S\&P, XU100, and XU30 (in USD).
 
-## 🌐 Live Demo
+![App Screenshot](preview_image_placeholder.png)
 
-Try the application here: [Real Estate Projection App](https://realestateprojection.streamlit.app/)
+---
 
-## 📊 Features
+## 📦 Features
 
-- **Bilingual Support**: Full English and Turkish language support
-- **Flexible Analysis**: Choose between monthly and yearly views
-- **Comprehensive Parameters**:
-  - Mortgage calculations
-  - Salary projections
-  - Currency conversions (EUR, USD, TL)
-  - Inflation considerations
-  - Random dollar value generation
-- **Multiple Visualization Options**:
-  - Mortgage payments
-  - USD/TL exchange rates
-  - Salary projections
-  - Cumulative payments
-  - Total credit amount
-  - Property value
-  - Payment/Salary ratio
+* 📈 Plot mortgage payments, salary projections, inflation-adjusted house prices, and rent ratios
+* 📉 Compare your investment with real asset returns (BTC, Gold, XU100, etc.)
+* 🧶 Supports random scenarios or fixed growth rates
+* 💾 Caches financial asset returns with auto-expiry (1-year validity)
+* 💱 XU100 and XU30 adjusted to USD using USD/TRY exchange rates
+* 🌐 English and Turkish interface options
 
-## 📈 Example Visualizations
+---
 
-### Monthly View
-![Monthly Projection](monthly_dollar_house_credit_cumulative_salary.png)
+## 🧠 How It Works
 
-### Annual View
-![Annual Projection](annual_dollar_house_credit_cumulative_salary.png)
+The app combines mortgage calculations, salary growth, dollar/TRY inflation trends, and financial market performance to simulate long-term payment plans, affordability, and opportunity cost.
 
-## 🛠️ Technical Details
+---
 
-- Built with Streamlit
-- Python-based calculations
-- Matplotlib for visualizations
-- Responsive design
-- Dark/Light theme support
+## 🚀 Getting Started
 
-## 💡 How to Use
+### 1. Install dependencies
 
-1. Adjust the parameters in the control panel
-2. Select your salary currency (EUR, USD, or TL)
-3. Choose whether to include inflation in calculations
-4. Select which plots you want to display
-5. Click "Generate Plot" to create the visualization
-6. The plot will appear in the right columns and can be downloaded
-
-## 🔧 Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/RealEstateProjection.git
-```
-
-2. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run the application:
+> **Note**: You need Python 3.8+ and a stable internet connection for financial data.
+
+### 2. Launch Streamlit app
+
 ```bash
 streamlit run app.py
 ```
 
-## 📝 Requirements
+### 3. Use CLI to test asset return calculations (optional)
 
-- Python 3.7+
-- Streamlit
-- NumPy
-- Matplotlib
-- Pandas
+```bash
+python stock_market_helper.py --asset BTC
+python stock_market_helper.py --asset XU100 --months
+```
 
-## 🤝 Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## ⚙️ Project Structure
 
-## 📄 License
+```
+├── app.py                   ← Streamlit frontend
+├── main.py                  ← Core financial logic and plotting
+├── stock_market_helper.py  ← Asset return calculation + caching logic
+├── cached_returns.csv       ← Auto-generated cache file
+└── README.md
+```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+---
+
+## 📟 Caching Logic
+
+* Stores average yearly/monthly growth and current price for each asset
+* File: `cached_returns.csv`
+* Re-used if:
+
+  * Same asset
+  * Same frequency (yearly/monthly)
+  * Date is **within 1 year**
+* Else → fetches fresh data and replaces the old entry
+
+---
+
+## 📉 Supported Assets
+
+| Symbol | Description             |
+| ------ | ----------------------- |
+| XAUUSD | Gold (USD)              |
+| XAGUSD | Silver (USD)            |
+| BTC    | Bitcoin                 |
+| ETH    | Ethereum                |
+| XRP    | Ripple                  |
+| NASDAQ | Nasdaq Index            |
+| S\&P   | S\&P 500 Index          |
+| XU100  | BIST 100 (USD-adjusted) |
+| XU30   | BIST 30 (USD-adjusted)  |
+
+---
+
+## 📊 Sample Use Cases
+
+* "How would my real estate loan behave under high inflation and TL devaluation?"
+* "What if I had invested the same down payment in BTC or Gold instead?"
+* "Will my TL-based salary keep up with the mortgage in USD terms?"
+
+---
+
+## 🖼️ Example Visualizations
+
+### Monthly View
+
+![Monthly Projection](monthly_dollar_house_credit_cumulative_salary.png)
+
+### Annual View
+
+![Annual Projection](annual_dollar_house_credit_cumulative_salary.png)
+
+---
+
+## 🧑‍💻 Contributing
+
+Pull requests and feedback are welcome. Please ensure your changes align with the project's modular structure.
+
+---
+
+## 🛡️ License
+
+MIT License.

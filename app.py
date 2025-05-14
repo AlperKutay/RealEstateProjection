@@ -347,7 +347,8 @@ with col2:
                     include_inflation=include_inflation,
                     language=language,
                     months_to_increase=months_to_increase,
-                    initial_rent_price_tl=initial_rent_price
+                    initial_rent_price_tl=initial_rent_price,
+                    interest_rate=interest_rate
                 )
                 dollar_rates_annual = None
                 dollar_rates_monthly = None

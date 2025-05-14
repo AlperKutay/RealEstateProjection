@@ -35,6 +35,7 @@ class Config:
     usa_inflation_rate_monthly: float
     turkey_inflation_rate: float
     turkey_inflation_rate_monthly: float
+    interest_rate: float
 # === Hesaplamalar ===
 def calculate_with_annual_growth_rate(start_value, growth_rate, years):
     values = [start_value]
@@ -143,17 +144,17 @@ def make_plots(config, data, args):
     saving_title = []
     info_lines_en = [
         ("Loan Period", config.years),
-        ("Average Dollar Increase Rate", (config.dollar_growth_rate_monthly if use_months else config.dollar_growth_rate_annual) * 100),
+        ("Average Dollar Increase (%)", (config.dollar_growth_rate_monthly if use_months else config.dollar_growth_rate_annual) * 100),
         ("Initial Dollar Rate (TL)", initial_dollar_rate),
-        ("Turkey Inflation Rate", config.turkey_inflation_rate * 100),
-        ("USA Inflation Rate", config.usa_inflation_rate * 100)
+        ("Turkey Average Inflation (%)", config.turkey_inflation_rate * 100),
+        ("USA Average Inflation (%)", config.usa_inflation_rate * 100)
     ]
     info_lines_tr = [
         ("Vade", config.years),
-        ("Ortalama Dolar Artış Oranı", (config.dollar_growth_rate_monthly if use_months else config.dollar_growth_rate_annual) * 100),
+        ("Ortalama Dolar Artışı (%)", (config.dollar_growth_rate_monthly if use_months else config.dollar_growth_rate_annual) * 100),
         ("Başlangıç Dolar / TL Fiyatı", initial_dollar_rate),
-        ("Türkiye Enflasyon Oranı", config.turkey_inflation_rate * 100),
-        ("ABD Enflasyon Oranı", config.usa_inflation_rate * 100)
+        ("Türkiye Ortalama Enflasyon (%)", config.turkey_inflation_rate * 100),
+        ("ABD Ortalama Enflasyonu (%)", config.usa_inflation_rate * 100)
     ]
     def label(name_tr, name_en):
         if lang == 'Türkçe' and name_tr:
@@ -189,6 +190,8 @@ def make_plots(config, data, args):
         info_lines_en.append(("Initial Salary (USD)", y[0]))
         info_lines_tr.append(("Euro/$ Oranı", config.euro_dollar_rate))
         info_lines_tr.append(("Başlangıç Maaş (USD)", y[0]))
+        info_lines_en.append(("Average Salary Increase Rate (Yearly) %", config.salary_growth_annual * 100))
+        info_lines_tr.append(("Ortalama Maaş Artış Oranı (Yıllık) %", config.salary_growth_annual * 100))
 
     if args.plot_cumulative_payment_usd:
         y = np.insert(data['cumulative_payment_usd_monthly'] if use_months else data['cumulative_payment_usd_annual'], 0, 0)
@@ -206,6 +209,11 @@ def make_plots(config, data, args):
         saving_title.append('credit_')
         info_lines_en.append(("Total Credit Amount (USD)", y[-1]))
         info_lines_tr.append(("Toplam Kredi Miktarı (USD)", y[-1]))
+        info_lines_en.append(("Down Payment Amount (USD)", base))
+        info_lines_tr.append(("Peşinat Miktarı (USD)", base))
+        info_lines_en.append(("Mortgage Rate (%)", config.interest_rate))
+        info_lines_tr.append(("Mortgage Rate (%)", config.interest_rate))
+
     if args.plot_value_of_house_usd:
         y = data['value_of_house_usd_monthly'] if use_months else data['value_of_house_usd_yearly']
         plot_series(label('Ev Değeri (USD)', 'House Value (USD)'), y)
@@ -220,6 +228,11 @@ def make_plots(config, data, args):
         plot_series(label('Ödeme/Maaş Oranı', 'Payment/Salary Ratio'), y, 1)
         title.append(label('Ödeme/Maaş Oranı', 'Payment/Salary Ratio'))
         saving_title.append('payment_salary_ratio_')
+        info_lines_en.append(("Initial Payment (USD)", y[0] * sal[0] ))
+        info_lines_tr.append(("Başlangıç Ödeme (USD)", y[0] * sal[0]))
+        info_lines_en.append(("Initial Salary (USD)", sal[0]))
+        info_lines_tr.append(("Başlangıç Maaş (USD)", sal[0]))
+        
 
     if args.plot_rent_price_usd:
         y = data['rent_price_usd_monthly'] if use_months else data['rent_price_usd_yearly']
@@ -245,6 +258,12 @@ def make_plots(config, data, args):
         plot_series(label('Ödeme-Kira/Maaş Oranı', 'Payment-Rent/Salary Ratio'), y, 1)
         title.append(label('Ödeme-Kira/Maaş Oranı', 'Payment-Rent/Salary Ratio'))
         saving_title.append('payment_and_rent_ratio_')
+        info_lines_en.append(("Price-to-Rent Ratio (Year)", config.price_rent_ratio_yearly))
+        info_lines_tr.append(("Fiyat-Kira Oranı (Yıl)", config.price_rent_ratio_yearly))
+        info_lines_en.append(("Initial House Value (USD)", config.value_of_house_usd))
+        info_lines_tr.append(("Başlangıç Ev Değeri (USD)", config.value_of_house_usd))
+        info_lines_en.append(("Average Salary Increase Rate (Yearly)", config.salary_growth_annual * 100))
+        info_lines_tr.append(("Ortalama Maaş Artış Oranı (Yıllık)", config.salary_growth_annual * 100))
 
     if args.plot_value_of_house_with_rent_price:
         house = data['value_of_house_usd_monthly'] if use_months else data['value_of_house_usd_yearly']
@@ -253,66 +272,68 @@ def make_plots(config, data, args):
         plot_series(label('Ev Değeri (USD) (Kira Fiyatı Dahil)', 'House Value (USD) (Rent Price Included)'), y)
         title.append(label('Ev Değeri (USD) (Kira Fiyatı Dahil)', 'House Value (USD) (Rent Price Included)'))
         saving_title.append('value_of_house_with_rent_price_')
+        info_lines_en.append(("Price-to-Rent Ratio (Year)", config.price_rent_ratio_yearly))
+        info_lines_tr.append(("Fiyat-Kira Oranı (Yıl)", config.price_rent_ratio_yearly))
     
     if args.plot_gold_price:
         y = data['gold_price']
         plot_series(label('Altın Fiyatı (USD)', 'Gold Price (USD)'), y)
         title.append(label('Altın Fiyatı (USD)', 'Gold Price (USD)'))
         saving_title.append('gold_price_')
-        info_lines_en.append(("Average Gold Growth Yearly", data['average_gold_growth']))
-        info_lines_tr.append(("Ortalama Altın Artış Yıllık", data['average_gold_growth']))
+        info_lines_en.append(("Average Gold Growth Yearly (%)", data['average_gold_growth']))
+        info_lines_tr.append(("Ortalama Altın Artış Yıllık (%)", data['average_gold_growth']))
 
     if args.plot_silver_price:
         y = data['silver_price']
         plot_series(label('Gümüş Fiyatı (USD)', 'Silver Price (USD)'), y)
         title.append(label('Gümüş Fiyatı (USD)', 'Silver Price (USD)'))
         saving_title.append('silver_price_')
-        info_lines_en.append(("Average Silver Growth Yearly", data['average_silver_growth']))
-        info_lines_tr.append(("Ortalama Gümüş Artış Yıllık", data['average_silver_growth']))
+        info_lines_en.append(("Average Silver Growth Yearly (%)", data['average_silver_growth']))
+        info_lines_tr.append(("Ortalama Gümüş Artış Yıllık (%)", data['average_silver_growth']))
 
     if args.plot_eth_price:
         y = data['eth_price']
         plot_series(label('ETH Fiyatı (USD)', 'ETH Price (USD)'), y)
         title.append(label('ETH Fiyatı (USD)', 'ETH Price (USD)'))
         saving_title.append('eth_price_')
-        info_lines_en.append(("Average ETH Growth Yearly", data['average_eth_growth']))
-        info_lines_tr.append(("Ortalama ETH Artış Yıllık", data['average_eth_growth']))
+        info_lines_en.append(("Average ETH Growth Yearly (%)", data['average_eth_growth']))
+        info_lines_tr.append(("Ortalama ETH Artış Yıllık (%)", data['average_eth_growth']))
 
     if args.plot_btc_price:
         y = data['btc_price']
         plot_series(label('BTC Fiyatı (USD)', 'BTC Price (USD)'), y)
         title.append(label('BTC Fiyatı (USD)', 'BTC Price (USD)'))
         saving_title.append('btc_price_')
-        info_lines_en.append(("Average BTC Growth Yearly", data['average_btc_growth']))
-        info_lines_tr.append(("Ortalama BTC Artış Yıllık", data['average_btc_growth']))
+        info_lines_en.append(("Average BTC Growth Yearly (%)", data['average_btc_growth']))
+        info_lines_tr.append(("Ortalama BTC Artış Yıllık (%)", data['average_btc_growth']))
 
     if args.plot_nasdaq_price:
         y = data['nasdaq_price']
         plot_series(label('NASDAQ Fiyatı (USD)', 'NASDAQ Price (USD)'), y)
         title.append(label('NASDAQ Fiyatı (USD)', 'NASDAQ Price (USD)'))
         saving_title.append('nasdaq_price_')
-        info_lines_en.append(("Average NASDAQ Growth Yearly", data['average_nasdaq_growth']))
+        info_lines_en.append(("Average NASDAQ Growth Yearly (%)", data['average_nasdaq_growth']))
 
     if args.plot_sp_price:
         y = data['sp_price']
         plot_series(label('S&P 500 Fiyatı (USD)', 'S&P 500 Price (USD)'), y)
         title.append(label('S&P 500 Fiyatı (USD)', 'S&P 500 Price (USD)'))
         saving_title.append('sp_price_')
-        info_lines_en.append(("Average S&P 500 Growth Yearly", data['average_sp_growth']))
+        info_lines_en.append(("Average S&P 500 Growth Yearly (%)", data['average_sp_growth']))
 
     if args.plot_xu100_price:
         y = data['xu100_price']
         plot_series(label('XU100 Fiyatı (USD)', 'XU100 Price (USD)'), y)
         title.append(label('XU100 Fiyatı (USD)', 'XU100 Price (USD)'))
         saving_title.append('xu100_price_')
-        info_lines_en.append(("Average XU100 Growth Yearly", data['average_xu100_growth']))
+        info_lines_en.append(("Average XU100 Growth Yearly (%)", data['average_xu100_growth']))
 
     if args.plot_xu30_price:
         y = data['xu30_price']
         plot_series(label('XU30 Fiyatı (USD)', 'XU30 Price (USD)'), y)
         title.append(label('XU30 Fiyatı (USD)', 'XU30 Price (USD)'))
         saving_title.append('xu30_price_')
-        info_lines_en.append(("Average XU30 Growth Yearly", data['average_xu30_growth']))
+        info_lines_en.append(("Average XU30 Growth Yearly (%)", data['average_xu30_growth']))
         
     plt.xticks(range(0, total_steps + 1, 12 if use_months else 1))
     plt.title(' '.join(title))
@@ -325,7 +346,7 @@ def make_plots(config, data, args):
         info_text = '\n'.join([f"{label(k, k)}: {v:,.2f}" for k, v in info_lines_tr])
     else:
         info_text = '\n'.join([f"{label(k, k)}: {v:,.2f}" for k, v in info_lines_en])
-    plt.gcf().text(0.9, -0.05, info_text, fontsize=9, va='bottom', ha='center', bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
+    plt.gcf().text(0.9, -0.1, info_text, fontsize=9, va='bottom', ha='center', bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.4))
 
     if config.save_plots:
         filename = ''.join(saving_title).rstrip('_') + '.png'

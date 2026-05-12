@@ -71,6 +71,20 @@ const VIEW_DEFS = {
     unit: "%",
     needsSalary: true,
   },
+  net_position: {
+    titleKey: "view_net_position", subKey: "view_net_position_sub", methodKey: "view_net_position_method",
+    series: [
+      { key: "net_buy_position_usd", labelKey: "view_net_position", formulaKey: "sf_net_position", color: 2 },
+    ],
+    unit: "USD",
+  },
+  loan_balance: {
+    titleKey: "view_loan_balance", subKey: "view_loan_balance_sub", methodKey: "view_loan_balance_method",
+    series: [
+      { key: "remaining_loan_usd", labelKey: "view_loan_balance", formulaKey: "sf_remaining_loan", color: 4 },
+    ],
+    unit: "USD",
+  },
   macro: {
     titleKey: "view_macro", subKey: "view_macro_sub", methodKey: "view_macro_method",
     series: [
@@ -91,6 +105,8 @@ const SERIES_FIELDS = {
   total_credit_minus_rent: ["total_credit_minus_rent_usd_yearly", "total_credit_minus_rent_usd_monthly"],
   payment_salary_ratio: ["payment_salary_ratio_yearly", "payment_salary_ratio_monthly"],
   payment_minus_rent_over_salary: ["payment_minus_rent_over_salary_yearly", "payment_minus_rent_over_salary_monthly"],
+  net_buy_position_usd: ["net_buy_position_usd_yearly", "net_buy_position_usd_monthly"],
+  remaining_loan_usd: ["remaining_loan_usd_yearly", "remaining_loan_usd_monthly"],
   dollar_rates: ["dollar_rates_annual", "dollar_rates_monthly"],
 };
 
@@ -480,8 +496,10 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
   const allViews = [
     { id: "decision", available: true },
     { id: "rent_vs", available: true },
+    { id: "net_position", available: true },
     { id: "payment", available: true },
     { id: "salary", available: hasSalary },
+    { id: "loan_balance", available: true },
     { id: "macro", available: true },
   ].filter((v) => v.available);
 

@@ -16,7 +16,6 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -135,8 +134,7 @@ def project(req: ProjectionRequest) -> dict:
 # ---------------------------------------------------------------------------
 
 if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
-
-    @app.get("/")
-    def index() -> FileResponse:
-        return FileResponse(FRONTEND_DIR / "index.html")
+    # Mount frontend at root so paths work the same here as on a static host
+    # (e.g. GitHub Pages). All /api/* routes are registered above and take
+    # precedence over the static mount.
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

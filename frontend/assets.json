@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "as_of": "2025-05-14",
+    "note": "Yearly returns and current USD prices (use_months=False rows from cached_returns.csv). Refresh by running: python stock_market_helper.py --asset <SYMBOL> on the backend, then re-export."
+  },
+  "supported_assets": ["XAUUSD", "XAGUSD", "BTC", "ETH", "XU100", "XU30", "NASDAQ", "S&P"],
+  "data": {
+    "XAUUSD": { "average_growth": 10.24, "current_price": 3258.20 },
+    "XAGUSD": { "average_growth": 9.12,  "current_price": 33.11 },
+    "BTC":    { "average_growth": 169.38, "current_price": 104013.40 },
+    "ETH":    { "average_growth": 105.97, "current_price": 2578.60 },
+    "NASDAQ": { "average_growth": 13.72, "current_price": 19010.08 },
+    "S&P":    { "average_growth": 9.26,  "current_price": 5886.55 }
+  }
+}

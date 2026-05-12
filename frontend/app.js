@@ -207,37 +207,32 @@ function projectionApp() {
       this.$watch("houseValueM", v => { this.form.value_of_house_tl = Math.round(v * 1_000_000); });
       this.$watch("downPaymentM", v => { this.form.initial_noncredit_amount_tl = Math.round(v * 1_000_000); });
 
-      // Fetch supported asset list
+      // Load static asset metadata bundled with the frontend
       try {
-        const r = await fetch("/api/assets");
+        const r = await fetch("assets.json");
         const j = await r.json();
-        this.supportedAssets = j.assets;
+        this.supportedAssets = j.supported_assets;
+        this._assetData = j.data || {};
       } catch (e) {
-        this.error = "API'ye bağlanılamadı. Backend çalışıyor mu?";
-        return;
+        this.error = "assets.json yüklenemedi";
+        this.supportedAssets = SUPPORTED_ASSETS;
+        this._assetData = {};
       }
 
-      // When an asset is checked, fetch its data on demand
-      this.$watch("selectedAssets", async (newList, oldList) => {
+      // When an asset is checked, look it up in the bundled data
+      this.$watch("selectedAssets", (newList, oldList) => {
         const added = newList.filter(x => !oldList.includes(x));
         for (const sym of added) {
           if (this.assetInfo[sym]) continue;
-          this.loadingAsset = true;
-          try {
-            const r = await fetch(`/api/asset/${encodeURIComponent(sym)}`);
-            if (!r.ok) throw new Error(await r.text());
-            this.assetInfo[sym] = await r.json();
-          } catch (e) {
-            this.error = `${sym} verisi alınamadı`;
+          const data = this._assetData[sym];
+          if (data) {
+            this.assetInfo[sym] = data;
+          } else {
+            this.error = `${sym} için varlık verisi yok (manuel girin veya yeniden kalibre edin)`;
             this.selectedAssets = this.selectedAssets.filter(x => x !== sym);
           }
-          this.loadingAsset = false;
         }
       });
-
-      // Chart is now lazy-created in renderChart() after a result arrives.
-      // This avoids the Chart.js v4 "fullSize" layout error on browsers
-      // where the canvas has no measured dimensions at component init time.
     },
 
     _buildChart(labels, datasets) {
@@ -280,29 +275,24 @@ function projectionApp() {
       });
     },
 
-    async runProjection() {
+    runProjection() {
       this.loading = true;
       this.error = "";
       try {
-        const body = { ...this.form };
-        body.assets = {};
+        const input = { ...this.form };
+        input.assets = {};
         for (const sym of this.selectedAssets) {
           if (this.assetInfo[sym]) {
-            body.assets[sym] = {
+            input.assets[sym] = {
               average_growth: this.assetInfo[sym].average_growth,
               current_price: this.assetInfo[sym].current_price,
             };
           }
         }
 
-        const r = await fetch("/api/project", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!r.ok) throw new Error(await r.text());
-        // Store full result in closure variable to avoid Alpine reactivity
-        _result = await r.json();
+        // Run the projection entirely in the browser
+        _result = runProjection(input);
+
         // Build a small reactive summary for the UI
         this.summary = {
           monthly_tl_payment: _result.monthly_tl_payment,

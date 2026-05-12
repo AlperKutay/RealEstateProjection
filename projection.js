@@ -138,8 +138,13 @@ function runProjection(inp) {
   const cumPaymentUsdMonthly = cumsum(monthlyPaymentUsd);
 
   const initialNoncreditUsd = inp.initial_noncredit_amount_tl / inp.start_dollar_tl;
-  const totalCreditUsdAnnual = [initialNoncreditUsd, ...cumPaymentUsdAnnual.map(x => x + initialNoncreditUsd)];
-  const totalCreditUsdMonthly = [initialNoncreditUsd, ...cumPaymentUsdMonthly.map(x => x + initialNoncreditUsd)];
+  // One-time closing cost on purchase (tapu harcı + komisyon + taşınma):
+  // folded into the t=0 outlay so all downstream "cost of ownership" series include it.
+  const buyTxTl = inp.value_of_house_tl * ((inp.transaction_cost_buy_pct ?? 0) / 100);
+  const buyTxUsd = buyTxTl / inp.start_dollar_tl;
+  const initialOutlayUsd = initialNoncreditUsd + buyTxUsd;
+  const totalCreditUsdAnnual = [initialOutlayUsd, ...cumPaymentUsdAnnual.map(x => x + initialOutlayUsd)];
+  const totalCreditUsdMonthly = [initialOutlayUsd, ...cumPaymentUsdMonthly.map(x => x + initialOutlayUsd)];
 
   // House value
   let houseTlYearly, houseTlMonthly;
@@ -153,6 +158,14 @@ function runProjection(inp) {
   }
   const houseUsdYearly = div(houseTlYearly, dollarRatesAnnual);
   const houseUsdMonthly = div(houseTlMonthly, dollarRatesMonthly);
+
+  // Selling cost (komisyon + masraflar) — what the seller pays at exit.
+  // Net sale value = house_value × (1 − sell_pct).
+  const sellPct = (inp.transaction_cost_sell_pct ?? 0) / 100;
+  const sellTxUsdYearly = houseUsdYearly.map(h => h * sellPct);
+  const sellTxUsdMonthly = houseUsdMonthly.map(h => h * sellPct);
+  const netSaleValueUsdYearly = houseUsdYearly.map(h => h * (1 - sellPct));
+  const netSaleValueUsdMonthly = houseUsdMonthly.map(h => h * (1 - sellPct));
 
   // Rent
   const annualRentTlStart = inp.initial_monthly_rent_tl * 12;
@@ -257,6 +270,8 @@ function runProjection(inp) {
     total_paid_tl: monthlyTlPayment * nMonths,
     loan_amount_tl: loan,
     initial_noncredit_amount_usd: initialNoncreditUsd,
+    buy_transaction_cost_tl: buyTxTl,
+    buy_transaction_cost_usd: buyTxUsd,
     value_of_house_usd: inp.value_of_house_tl / inp.start_dollar_tl,
     effective_dollar_growth_annual: dollarGrowthAnnual,
     effective_dollar_growth_monthly: dollarGrowthMonthly,
@@ -286,6 +301,10 @@ function runProjection(inp) {
     ownership_cost_usd_monthly: carryingUsdMonthly,
     cumulative_ownership_cost_usd_yearly: cumCarryingUsdYearly,
     cumulative_ownership_cost_usd_monthly: cumCarryingUsdMonthly,
+    sell_transaction_cost_usd_yearly: sellTxUsdYearly,
+    sell_transaction_cost_usd_monthly: sellTxUsdMonthly,
+    net_sale_value_usd_yearly: netSaleValueUsdYearly,
+    net_sale_value_usd_monthly: netSaleValueUsdMonthly,
     salaries_usd_yearly: salariesUsdYearly,
     salaries_usd_monthly: salariesUsdMonthly,
     payment_salary_ratio_yearly: paymentSalaryRatioYearly,

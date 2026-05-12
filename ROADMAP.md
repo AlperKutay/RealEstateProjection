@@ -8,23 +8,22 @@ Status legend: `[ ]` pending · `[~]` in progress · `[x]` done
 
 ---
 
-## Phase 1 — Decision Tool Essentials (höhe impact, low effort)
+## Phase 1 — Decision Tool Essentials (high impact, low effort)
 
 Goal: turn the tool from "interesting chart" into "actually helps decide".
 
 - [ ] **Property carrying costs** — emlak vergisi, aidat, DASK, bakım rezervi
-  - Add fields on `ProjectionInput`: `annual_property_tax_rate` (% of house value),
+  - Add inputs: `annual_property_tax_rate` (% of house value),
     `monthly_hoa_tl`, `annual_dask_tl`, `annual_maintenance_rate` (% of value).
   - Roll them into a new `ownership_costs_usd_{yearly,monthly}` series.
   - Update "Net Total Payment" to include these costs (currently only subtracts rent).
-  - Done when: form has the new fields, computed series shows up as an opt-in plot,
-    and tests cover the math.
+  - Done when: form has the new fields, computed series shows up as an opt-in plot.
 
 - [ ] **Transaction costs** — tapu harcı, komisyon, taşınma, satışta vergi
   - Add `transaction_cost_buy_pct` (default 6%) and `transaction_cost_sell_pct`
     (default 2%) to inputs.
-  - Reflect in `initial_noncredit_amount_usd` (one-time at t=0) and in any
-    "exit-value" computation (year-N).
+  - Reflect in the initial outlay (one-time at t=0) and in any exit-value
+    computation (year-N).
   - Done when: down-payment summary shows "+ X TL kapanış maliyetleri".
 
 - [ ] **Break-even summary card**
@@ -32,18 +31,16 @@ Goal: turn the tool from "interesting chart" into "actually helps decide".
     total_credit_minus_rent_usd + transaction_costs`. Show "Y. yılda başa
     baş geliyorsunuz" (or "bu vade içinde başa baş gelmiyor").
   - Add to the four-card summary row above the chart.
-  - Done when: card renders with sensible value across multiple scenarios.
 
 - [ ] **Tooltips on form fields**
   - Each parameter gets a `?` icon with a 1–2 sentence explanation (e.g.
     "ABD enflasyonu ile düşür" → "Dolar büyüme oranından ABD enflasyonunu
     çıkarır; sonuç reel USD getirisidir.").
-  - Translation tables in `frontend/app.js` already exist; add `*_tooltip` keys.
+  - Add `*_tooltip` keys to `TRANSLATIONS` in `app.js`.
 
 - [ ] **Preset scenarios**
   - "İstanbul 1+1 ortalama", "Lüks", "Konservatif kira", "Yüksek enflasyon".
-  - Stored as JSON in `frontend/presets.js`, applied with one click.
-  - Helps first-time users; lowers friction to play with values.
+  - Stored as JSON in a `presets.js`, applied with one click.
 
 ---
 
@@ -51,23 +48,19 @@ Goal: turn the tool from "interesting chart" into "actually helps decide".
 
 Goal: the numbers we show should be defensible.
 
-- [ ] **Test coverage for `projection.py`**
-  - Tests exist for `main.py` legacy code only. Add `test_projection.py`:
-    - `run_projection` returns expected series lengths.
+- [ ] **Test coverage for `projection.js`**
+  - No tests currently. Add a small test harness (Vitest or plain Node-runnable
+    asserts) covering:
+    - `runProjection` returns expected series lengths.
     - Deterministic dollar/rent paths match analytic compound formula.
-    - Random paths' yearly geometric mean ≈ target growth (with seed).
+    - Random paths' yearly geometric mean ≈ target growth (with seeded RNG).
     - `total_credit_minus_rent` math sanity-check.
   - Done when: 15+ tests covering happy path and edge cases.
 
 - [ ] **Geometric vs arithmetic returns in random paths**
-  - `random_yearly_path` rescales by *arithmetic* mean. For long-horizon
+  - `randomYearlyPath` rescales by *arithmetic* mean. For long-horizon
     compounding, the geometric mean is what matches the analytic compound
-    series. Verify and fix if needed (write the test first to expose the gap).
-
-- [ ] **`stock_market_helper.average_growth` semantics**
-  - Confirm whether the returned figure is CAGR or arithmetic mean of yearly
-    returns. Either is fine, but the projection should use one *consistently*
-    (compound_series wants CAGR).
+    series. Write the test first to expose the gap, then fix.
 
 - [ ] **`cum_rent_usd_yearly` alignment**
   - First element currently includes a full year of rent at t=0. This makes
@@ -76,10 +69,9 @@ Goal: the numbers we show should be defensible.
     onward to match `cumulative_payment_usd_annual`) and update.
 
 - [ ] **Monte Carlo / fan chart**
-  - Run N (≥500) projections per request when `generate_random=true`.
-  - Return P10/P50/P90 envelopes instead of a single path.
-  - Frontend draws filled band + median line.
-  - Backend: new endpoint `/api/project/montecarlo` or extend existing.
+  - When `generate_random=true`, run N (≥500) projections in the browser.
+  - Show P10/P50/P90 envelopes instead of a single noisy path.
+  - Chart.js can render filled bands; the math is already vectorized.
 
 ---
 
@@ -135,31 +127,26 @@ Goal: the numbers we show should be defensible.
 ## Phase 5 — Code Quality & Ops
 
 - [ ] **CI on GitHub Actions**
-  - Run `python -m unittest` on every PR. Optional: `ruff` lint, frontend
-    syntax check.
-
-- [ ] **Asset-specific cache TTL**
-  - `cached_returns.csv` uses a single 365-day TTL. Crypto changes weekly;
-    gold doesn't. Make TTL a per-symbol config in `_SYMBOL_TABLE`.
+  - Lint JS (eslint or just `node --check`), syntax-check HTML, run JS tests
+    once Phase 2 lands.
 
 - [ ] **TypeScript for frontend**
-  - Generate TS types from `ProjectionResult` (via OpenAPI export from
-    FastAPI). Replaces the `any`-typed `_result` and catches schema drift.
-  - Optional — only if frontend grows.
-
-- [ ] **Retire `make_plots` / Streamlit duplication**
-  - Either drop the Streamlit shell entirely, or rewire it to render
-    `ProjectionResult` directly without `_build_legacy_payload`. Removes the
-    "add a series to two places" friction noted in CLAUDE.md.
+  - Add a TS definition for the projection result shape so `_result` isn't
+    typed `any`. Optional — only if `app.js` grows.
 
 - [ ] **Magic-number config**
-  - `random_yearly_path` jitter range (0.7..1.3), monthly jitter (0.98..1.05),
-    cache TTL — extract to a `config.py` or constants block.
+  - `randomYearlyPath` jitter range (0.7..1.3), monthly jitter (0.98..1.05) —
+    extract to a constants block.
+
+- [ ] **GH Action to refresh `assets.json`**
+  - Optional: weekly cron that hits yfinance (in CI), updates `assets.json`,
+    opens a PR. Restores the live-data feature without bringing back a runtime
+    backend.
 
 ---
 
 ## Out of scope (for now)
 
-- Multi-user accounts / saved scenarios in a backend DB
+- Multi-user accounts / saved scenarios on a backend
 - Localization beyond TR/EN
 - Native mobile app

@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    container_name: real-estate-projection
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./cached_returns.csv:/app/cached_returns.csv
+    restart: unless-stopped

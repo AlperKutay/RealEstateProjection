@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.gitignore
+.venv/
+venv/
+env/
+*.png
+test_main.py
+app.py
+CLAUDE.md
+README.md
+.vscode/
+.idea/
+*.md

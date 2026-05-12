@@ -34,6 +34,7 @@ const TRANSLATIONS = {
     fetching_asset: "Varlık verisi alınıyor...",
     generate: "🚀 Grafik Oluştur",
     calculating: "Hesaplanıyor...",
+    save_chart: "Grafiği Kaydet",
     summary_monthly_tl: "Aylık TL Ödeme",
     summary_total_tl: "Toplam Ödenen TL",
     summary_loan: "Kredi",
@@ -85,6 +86,7 @@ const TRANSLATIONS = {
     fetching_asset: "Fetching asset data...",
     generate: "🚀 Generate Plot",
     calculating: "Calculating...",
+    save_chart: "Save Chart",
     summary_monthly_tl: "Monthly TL Payment",
     summary_total_tl: "Total Paid TL",
     summary_loan: "Loan",
@@ -233,6 +235,23 @@ function projectionApp() {
           }
         }
       });
+    },
+
+    saveChart() {
+      if (!_chart) return;
+      const src = _chart.canvas;
+      const tmp = document.createElement("canvas");
+      tmp.width = src.width;
+      tmp.height = src.height;
+      const ctx = tmp.getContext("2d");
+      ctx.fillStyle = "#0f172a"; // matches bg-slate-900 so the dark theme exports cleanly
+      ctx.fillRect(0, 0, tmp.width, tmp.height);
+      ctx.drawImage(src, 0, 0);
+      const a = document.createElement("a");
+      a.href = tmp.toDataURL("image/png");
+      const ts = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
+      a.download = `projection-${ts}.png`;
+      a.click();
     },
 
     _buildChart(labels, datasets) {

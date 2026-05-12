@@ -1,40 +1,38 @@
+import os
+from dataclasses import dataclass
+from datetime import datetime
+
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')  # Set the backend to non-interactive 'Agg'
+matplotlib.use('Agg')  # non-interactive backend, required for headless Streamlit
 import matplotlib.pyplot as plt
-import argparse
-from dataclasses import dataclass
-import os
-from datetime import datetime
 # === Config sınıfı ===
 @dataclass
 class Config:
     years: int
-    monthly_tl_payment: int
-    annual_tl_payment: int
+    monthly_tl_payment: float
+    annual_tl_payment: float
     start_dollar_tl: float
     dollar_growth_rate_annual: float
     dollar_growth_rate_monthly: float
-    start_salary_base: int
+    start_salary_base: float
     salary_growth_annual: float
     euro_dollar_rate: float
-    initial_noncredit_amount: int
+    initial_noncredit_amount: float
     initial_noncredit_amount_usd: float
-    value_of_house_tl: int
+    value_of_house_tl: float
     value_of_house_usd: float
     save_plots: bool
     usa_inflation_rate: float
+    usa_inflation_rate_monthly: float
     turkey_inflation_rate: float
-    price_rent_ratio_yearly: int
+    turkey_inflation_rate_monthly: float
+    price_rent_ratio_yearly: float
     salary_currency: str
     include_inflation: bool
     months_to_increase: int
     initial_rent_price_tl: float
     language: str
-    usa_inflation_rate: float
-    usa_inflation_rate_monthly: float
-    turkey_inflation_rate: float
-    turkey_inflation_rate_monthly: float
     interest_rate: float
 # === Hesaplamalar ===
 def calculate_with_annual_growth_rate(start_value, growth_rate, years):
@@ -94,8 +92,16 @@ def calculate_total_credit_amount(cumulative_payment_usd, initial_credit_usd):
     return cumulative_payment_usd + initial_credit_usd
 
 def calculate_monthly_payment_tl(total_credit_amount, interest_rate_of_credit, years):
-    monthly_payment_tl = interest_rate_of_credit * total_credit_amount / 100
-    return monthly_payment_tl
+    """Standard mortgage amortization: M = P * r(1+r)^n / ((1+r)^n - 1).
+
+    interest_rate_of_credit is the monthly rate as a percentage (e.g. 2.74).
+    """
+    r = interest_rate_of_credit / 100.0
+    n = years * 12
+    if r == 0:
+        return total_credit_amount / n
+    factor = (1 + r) ** n
+    return total_credit_amount * r * factor / (factor - 1)
 
 def calculate_rent_price_usd(rent_price_tl, turkish_inflation_rate, dollar_rates):
     #dollar_rates = np.delete(dollar_rates, 0)
@@ -418,82 +424,8 @@ def generate_random_values_monthly(initial_rate, years, target_avg_increase_pct)
 
     return yearly_values, adjusted_yearly_increases, monthly_values
 
-# === Main ===
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--years', type=int, default=10)
-    parser.add_argument('--interest_rate_of_credit', type=float, default=2.89)
-    parser.add_argument('--start_dollar_tl', type=float, default=38.6)
-    parser.add_argument('--dollar_growth_rate_annual', type=float, default=0.35)
-    parser.add_argument('--start_salary_base', type=int, default=32000)
-    parser.add_argument('--salary_growth_annual', type=float, default=0.06)
-    parser.add_argument('--euro_dollar_rate', type=float, default=1.15)
-    parser.add_argument('--initial_noncredit_amount', type=int, default=1000000)
-    parser.add_argument('--value_of_house_tl', type=int, default=2500000)
-    parser.add_argument('--save_plots', action='store_true')
-    parser.add_argument('--usa_inflation_rate', type=float, default=0.03)
-    parser.add_argument('--turkey_inflation_rate', type=float, default=0.35)
-    parser.add_argument('--price_rent_ratio_yearly', type=int, default=15)
-    parser.add_argument('--salary_currency', type=str, default='EUR')
-    parser.add_argument('--include_inflation', action='store_true')
-    parser.add_argument('--months_to_increase', type=int, default=12)
-    parser.add_argument('--plot_annual_payment_usd', action='store_true')
-    parser.add_argument('--plot_dollar_rates', action='store_true')
-    parser.add_argument('--plot_dollar_salaries', action='store_true')
-    parser.add_argument('--plot_cumulative_payment_usd', action='store_true')
-    parser.add_argument('--plot_total_credit_amount_with_initial_noncredit_amount', action='store_true')
-    parser.add_argument('--plot_value_of_house_usd', action='store_true')
-    parser.add_argument('--plot_monthly_payment_usd', action='store_true')
-    parser.add_argument('--use_months', action='store_true')
-    args = parser.parse_args()
-
-    monthly_tl_payment = calculate_monthly_payment_tl(args.value_of_house_tl - args.initial_noncredit_amount, args.interest_rate_of_credit, args.years)
-
-    config = Config(
-        years=args.years,
-        monthly_tl_payment=monthly_tl_payment,
-        annual_tl_payment=monthly_tl_payment * 12,
-        start_dollar_tl=args.start_dollar_tl,
-        dollar_growth_rate_annual=args.dollar_growth_rate_annual,
-        dollar_growth_rate_monthly=(((args.dollar_growth_rate / 100) + 1) ** (1/12)) - 1,
-        start_salary_base=args.start_salary_base,
-        salary_growth_annual=args.salary_growth_annual,
-        euro_dollar_rate=args.euro_dollar_rate,
-        initial_noncredit_amount=args.initial_noncredit_amount,
-        initial_noncredit_amount_usd=args.initial_noncredit_amount / args.start_dollar_tl,
-        value_of_house_tl=args.value_of_house_tl,
-        value_of_house_usd=args.value_of_house_tl / args.start_dollar_tl,
-        save_plots=args.save_plots,
-        usa_inflation_rate=args.usa_inflation_rate,
-        turkey_inflation_rate=args.turkey_inflation_rate,
-        price_rent_ratio_yearly=args.price_rent_ratio_yearly,
-        salary_currency=args.salary_currency,
-        include_inflation=args.include_inflation,
-        months_to_increase=args.months_to_increase
-    )
-
-    dollar_rates_annual = calculate_dollar_rates_annual(config.start_dollar_tl, config.dollar_growth_rate_annual, config.years)
-    dollar_rates_monthly = calculate_dollar_rates_monthly(config.start_dollar_tl, config.dollar_growth_rate_monthly, config.years)
-    annual_payment_usd = calculate_annual_payment_usd(config.annual_tl_payment, dollar_rates_annual)
-    monthly_payment_usd = calculate_monthly_payment_usd(config.monthly_tl_payment, dollar_rates_monthly)
-    cumulative_payment_usd_annual = calculate_cumulative_payment_usd(annual_payment_usd)
-    cumulative_payment_usd_monthly = calculate_cumulative_payment_usd(monthly_payment_usd)
-    dollar_salaries = calculate_usd_salaries(config.start_salary_base, config.salary_growth_annual, config.years, config.euro_dollar_rate, config.salary_currency, dollar_rates_annual)
-    if config.use_months:
-        dollar_salaries = generate_monthly_salaries_from_yearly(dollar_salaries, config.months_to_increase)
-
-    data = {
-        'dollar_rates_annual': dollar_rates_annual,
-        'dollar_rates_monthly': dollar_rates_monthly,
-        'annual_payment_usd': annual_payment_usd,
-        'monthly_payment_usd': monthly_payment_usd,
-        'cumulative_payment_usd_annual': cumulative_payment_usd_annual,
-        'cumulative_payment_usd_monthly': cumulative_payment_usd_monthly,
-        'dollar_salaries': dollar_salaries
-    }
-
-    make_plots(
-        config, data, args
-    )
+# The CLI entrypoint was removed — it called non-existent helpers and is
+# superseded by `streamlit run app.py` and `uvicorn api:app`. For ad-hoc
+# scripted runs, use projection.run_projection() directly.
 
 

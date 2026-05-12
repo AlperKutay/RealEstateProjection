@@ -1,0 +1,159 @@
+name: Refresh assets.json
+
+on:
+  schedule:
+    # Sundays 06:00 UTC — low-traffic window, after Friday market close.
+    - cron: "0 6 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "yfinance>=0.2.40" pandas
+
+      - name: Refresh assets.json
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import date, timedelta
+          from pathlib import Path
+
+          import pandas as pd
+          import yfinance as yf
+
+          ASSETS_PATH = Path("assets.json")
+
+          YF_SYMBOLS = {
+              "XAUUSD": "GC=F",
+              "XAGUSD": "SI=F",
+              "BTC":    "BTC-USD",
+              "ETH":    "ETH-USD",
+              "NASDAQ": "^IXIC",
+              "S&P":    "^GSPC",
+              "XU100":  "XU100.IS",
+              "XU30":   "XU030.IS",
+          }
+          TRY_ADJUSTED = {"XU100", "XU30"}
+
+          with ASSETS_PATH.open("r", encoding="utf-8") as f:
+              assets = json.load(f)
+
+          supported = assets.get("supported_assets", list(YF_SYMBOLS.keys()))
+          data = assets.get("data", {})
+          note = assets.get("_meta", {}).get("note", "")
+
+          end = date.today() + timedelta(days=1)
+          start = end - timedelta(days=365 * 30)
+
+          def fetch_close(ticker: str) -> pd.Series | None:
+              try:
+                  df = yf.download(
+                      ticker,
+                      start=start.isoformat(),
+                      end=end.isoformat(),
+                      progress=False,
+                      auto_adjust=False,
+                      threads=False,
+                  )
+              except Exception as exc:
+                  print(f"  fetch failed for {ticker}: {exc}")
+                  return None
+              if df is None or df.empty:
+                  print(f"  empty frame for {ticker}")
+                  return None
+              # yfinance >=0.2.x sometimes returns MultiIndex columns even for a
+              # single ticker — flatten by dropping the ticker level.
+              if isinstance(df.columns, pd.MultiIndex):
+                  df.columns = df.columns.droplevel(1)
+              if "Close" not in df.columns:
+                  print(f"  no Close column for {ticker}: {list(df.columns)}")
+                  return None
+              close = df["Close"].dropna()
+              return close if not close.empty else None
+
+          # Pre-fetch USDTRY once; reused for both Turkish indices.
+          usdtry = None
+          if any(sym in TRY_ADJUSTED for sym in supported):
+              usdtry = fetch_close("USDTRY=X")
+              if usdtry is None:
+                  print("WARNING: USDTRY=X unavailable; XU100/XU30 will be skipped.")
+
+          for sym in supported:
+              ticker = YF_SYMBOLS.get(sym)
+              if ticker is None:
+                  print(f"{sym}: no yfinance mapping, keeping existing entry")
+                  continue
+              print(f"{sym} -> {ticker}")
+              close = fetch_close(ticker)
+              if close is None:
+                  print(f"  keeping existing entry for {sym}")
+                  continue
+
+              if sym in TRY_ADJUSTED:
+                  if usdtry is None:
+                      print(f"  no USDTRY rate; keeping existing entry for {sym}")
+                      continue
+                  aligned = pd.concat([close, usdtry], axis=1, join="inner").dropna()
+                  if aligned.empty:
+                      print(f"  no overlapping USDTRY dates for {sym}; keeping existing")
+                      continue
+                  aligned.columns = ["px", "fx"]
+                  close = (aligned["px"] / aligned["fx"]).dropna()
+
+              if close.empty:
+                  print(f"  empty series after adjustment for {sym}; keeping existing")
+                  continue
+
+              yearly = close.resample("YE").last().dropna()
+              if len(yearly) < 3:
+                  print(f"  only {len(yearly)} yearly points for {sym}; keeping existing")
+                  continue
+
+              returns_pct = yearly.pct_change().dropna() * 100.0
+              if returns_pct.empty:
+                  print(f"  no yearly returns for {sym}; keeping existing")
+                  continue
+
+              avg = float(returns_pct.mean())
+              last_price = float(close.iloc[-1])
+              data[sym] = {
+                  "average_growth": round(avg, 2),
+                  "current_price": round(last_price, 2),
+              }
+              print(f"  avg_growth={avg:.2f}%  current_price={last_price:.2f}  ({len(returns_pct)} yrs)")
+
+          assets["_meta"] = {"as_of": date.today().isoformat(), "note": note}
+          assets["supported_assets"] = supported
+          assets["data"] = data
+
+          with ASSETS_PATH.open("w", encoding="utf-8") as f:
+              json.dump(assets, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          PY
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- assets.json; then
+            echo "assets.json unchanged; nothing to commit."
+            exit 0
+          fi
+          git add assets.json
+          git commit -m "chore(assets): weekly refresh of assets.json"
+          git push

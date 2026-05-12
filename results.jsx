@@ -4,6 +4,7 @@
 // =============================================================
 
 const { useEffect, useRef, useMemo, useState: useState_R } = React;
+const HelpIcon = window.HelpIcon;
 
 const CHART_COLORS = [
   "oklch(0.58 0.13 50)",
@@ -33,45 +34,45 @@ function buildChartViews(t) {
 // We hand-tune the views here for control. labels filled in build.
 const VIEW_DEFS = {
   decision: {
-    titleKey: "view_decision", subKey: "view_decision_sub",
+    titleKey: "view_decision", subKey: "view_decision_sub", methodKey: "view_decision_method",
     series: [
-      { key: "total_credit_amount_usd", labelKey: "i_total_paid", color: 4, dash: true },
-      { key: "value_of_house_usd", labelKey: "f_value", color: 0 },
-      { key: "house_plus_rent", labelKey: "view_rent_vs", color: 2 },
+      { key: "total_credit_amount_usd", labelKey: "i_total_paid", formulaKey: "sf_total_paid", color: 4, dash: true },
+      { key: "value_of_house_usd", labelKey: "f_value", formulaKey: "sf_house_value", color: 0 },
+      { key: "house_plus_rent", labelKey: "view_rent_vs", formulaKey: "sf_house_plus_rent", color: 2 },
     ],
     includeAssets: true,
     unit: "USD",
   },
   payment: {
-    titleKey: "view_payment", subKey: "view_payment_sub",
+    titleKey: "view_payment", subKey: "view_payment_sub", methodKey: "view_payment_method",
     series: [
-      { key: "monthly_payment_usd", labelKey: "i_monthly_payment", color: 0, offset: 1 },
-      { key: "rent_price_usd", labelKey: "f_rent", color: 6, dash: true },
+      { key: "monthly_payment_usd", labelKey: "i_monthly_payment", formulaKey: "sf_monthly_pay", color: 0, offset: 1 },
+      { key: "rent_price_usd", labelKey: "f_rent", formulaKey: "sf_rent_monthly", color: 6, dash: true },
     ],
     unit: "USD/ay",
   },
   rent_vs: {
-    titleKey: "view_rent_vs", subKey: "view_rent_vs_sub",
+    titleKey: "view_rent_vs", subKey: "view_rent_vs_sub", methodKey: "view_rent_vs_method",
     series: [
-      { key: "house_plus_rent", labelKey: "view_rent_vs", color: 2 },
-      { key: "total_credit_amount_usd", labelKey: "i_total_paid", color: 0, dash: true },
-      { key: "cumulative_rent", labelKey: "f_rent", color: 5 },
+      { key: "house_plus_rent", labelKey: "view_rent_vs", formulaKey: "sf_house_plus_rent", color: 2 },
+      { key: "total_credit_amount_usd", labelKey: "i_total_paid", formulaKey: "sf_total_paid", color: 0, dash: true },
+      { key: "cumulative_rent", labelKey: "f_rent", formulaKey: "sf_cum_rent", color: 5 },
     ],
     includeAssets: true,
     unit: "USD",
   },
   salary: {
-    titleKey: "view_salary", subKey: "view_salary_sub",
+    titleKey: "view_salary", subKey: "view_salary_sub", methodKey: "view_salary_method",
     series: [
-      { key: "payment_salary_ratio", labelKey: "view_salary", color: 0, offset: 1, isRatio: true },
+      { key: "payment_salary_ratio", labelKey: "view_salary", formulaKey: "sf_salary_ratio", color: 0, offset: 1, isRatio: true },
     ],
     unit: "%",
     needsSalary: true,
   },
   macro: {
-    titleKey: "view_macro", subKey: "view_macro_sub",
+    titleKey: "view_macro", subKey: "view_macro_sub", methodKey: "view_macro_method",
     series: [
-      { key: "dollar_rates", labelKey: "f_start_dollar", color: 1 },
+      { key: "dollar_rates", labelKey: "f_start_dollar", formulaKey: "sf_fx", color: 1 },
     ],
     unit: "TL",
   },
@@ -156,7 +157,12 @@ function InsightCards({ result, form, t, lang }) {
   return (
     <div className="insights">
       <div className="insight accent">
-        <div className="insight-label">{t("i_monthly_payment")}</div>
+        <div className="insight-label">
+          {t("i_monthly_payment")}
+          <HelpIcon text={lang === "tr"
+            ? "Sabit TL taksit. Banka kredisinin aylık geri ödemesi."
+            : "Fixed TL installment. Monthly mortgage repayment."} />
+        </div>
         <div className="insight-value">{fmtTLShort(result.monthly_tl_payment)}</div>
         <div className="insight-note">
           ≈ {fmtUSD(result.monthly_payment_usd[0])} {lang === "tr" ? "bugün" : "today"}
@@ -164,7 +170,12 @@ function InsightCards({ result, form, t, lang }) {
       </div>
 
       <div className="insight">
-        <div className="insight-label">{t("i_total_paid")}</div>
+        <div className="insight-label">
+          {t("i_total_paid")}
+          <HelpIcon text={lang === "tr"
+            ? "Aylık taksit × ay sayısı. Vade sonunda bankaya ödediğin toplam TL."
+            : "Monthly installment × number of months. Total TL paid by end of term."} />
+        </div>
         <div className="insight-value">{fmtTLShort(result.total_paid_tl)}</div>
         <div className="insight-note">
           {t("year")} {form.years} · {form.years * 12} {t("month")}
@@ -172,7 +183,12 @@ function InsightCards({ result, form, t, lang }) {
       </div>
 
       <div className="insight">
-        <div className="insight-label">{t("i_real_cost")}</div>
+        <div className="insight-label">
+          {t("i_real_cost")}
+          <HelpIcon text={lang === "tr"
+            ? "Peşinatın USD karşılığı + tüm taksitlerin o günkü kurla USD karşılığı, toplamı."
+            : "Down payment in USD + each installment in same-month USD, summed."} />
+        </div>
         <div className="insight-value">{fmtUSD(realCostUsd)}</div>
         <div className="insight-note">
           {fmtUSD(downUsd)} {lang === "tr" ? "peşinat" : "down"} + {fmtUSD(realCostUsd - downUsd)} {lang === "tr" ? "kredi" : "loan"}
@@ -180,7 +196,12 @@ function InsightCards({ result, form, t, lang }) {
       </div>
 
       <div className="insight">
-        <div className="insight-label">{t("i_breakeven")}</div>
+        <div className="insight-label">
+          {t("i_breakeven")}
+          <HelpIcon text={lang === "tr"
+            ? "(Ev değeri + biriken kira) ilk kez (peşinat + ödenen taksitler) toplamını geçtiği yıl. Ev sahibi olmanın net pozitife geçtiği nokta."
+            : "First year where (home value + cumulative rent saved) exceeds (down payment + installments paid). When ownership turns net-positive."} />
+        </div>
         <div className="insight-value">
           {breakeven === -1 ? "—" : breakeven === 0 ? "Y1" : `Y${breakeven}`}
         </div>
@@ -194,7 +215,12 @@ function InsightCards({ result, form, t, lang }) {
       </div>
 
       <div className="insight">
-        <div className="insight-label">{t("i_house_appreciation")}</div>
+        <div className="insight-label">
+          {t("i_house_appreciation")}
+          <HelpIcon text={lang === "tr"
+            ? "Vade sonunda evin USD değerinin, bugünkü USD değerine oranı."
+            : "Final USD home value divided by today's USD home value."} />
+        </div>
         <div className="insight-value">+{appreciation.toFixed(0)}<small>%</small></div>
         <div className="insight-note">
           {fmtUSD(startHouse)} → {fmtUSD(endHouse)}
@@ -202,7 +228,12 @@ function InsightCards({ result, form, t, lang }) {
       </div>
 
       <div className="insight">
-        <div className="insight-label">{t("i_best_alt")}</div>
+        <div className="insight-label">
+          {t("i_best_alt")}
+          <HelpIcon text={lang === "tr"
+            ? "Karşılaştırdığın varlıklar arasında en yüksek USD getiriye ulaşan. (Alternatif Yatırımlar sekmesinden ekle.)"
+            : "Among the assets you compared, the one with the highest USD return. (Add from Alternatives tab.)"} />
+        </div>
         <div className="insight-value">
           {bestAlt ? bestAlt.sym : "—"}
           {bestAlt ? <small>  +{bestAlt.gainPct.toFixed(0)}%</small> : null}
@@ -445,7 +476,10 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
     <div className="chart-panel">
       <div className="chart-head">
         <div style={{ minWidth: 0 }}>
-          <h2 className="chart-title">{t(def.titleKey)}</h2>
+          <h2 className="chart-title">
+            {t(def.titleKey)}
+            {def.methodKey ? <HelpIcon text={t(def.methodKey)} /> : null}
+          </h2>
           <p className="chart-sub">{t(def.subKey)}</p>
         </div>
         <div className="view-switch" role="tablist">
@@ -460,6 +494,9 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
           ))}
         </div>
       </div>
+
+      <SeriesGlossary def={def} result={result} t={t} />
+
       <div className="chart-wrap">
         <ProjectionChart
           result={result}
@@ -489,6 +526,47 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
           {t("save_chart")}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---------------- Series glossary (formula card) ----------------
+
+function SeriesGlossary({ def, result, t }) {
+  const items = def.series.map((s, i) => ({
+    color: CHART_COLORS[s.color != null ? s.color : i],
+    dash: !!s.dash,
+    label: t(s.labelKey),
+    formula: s.formulaKey ? t(s.formulaKey) : null,
+  }));
+  // Append asset projection series so each gets explained too
+  if (def.includeAssets && result.asset_projections) {
+    let idx = 2;
+    for (const sym of Object.keys(result.asset_projections)) {
+      const proj = result.asset_projections[sym];
+      items.push({
+        color: CHART_COLORS[(2 + idx) % CHART_COLORS.length],
+        dash: true,
+        label: `${sym} (+${proj.average_growth.toFixed(1)}%/yr)`,
+        formula: t("sf_asset"),
+      });
+      idx += 1;
+    }
+  }
+  if (!items.length) return null;
+  return (
+    <div className="glossary">
+      {items.map((it, i) => (
+        <div key={i} className="glossary-row">
+          <span className="glossary-mark" style={{
+            background: it.dash
+              ? `repeating-linear-gradient(90deg, ${it.color} 0 6px, transparent 6px 10px)`
+              : it.color,
+          }} />
+          <span className="glossary-label">{it.label}</span>
+          {it.formula ? <span className="glossary-formula">— {it.formula}</span> : null}
+        </div>
+      ))}
     </div>
   );
 }

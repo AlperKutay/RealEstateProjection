@@ -654,6 +654,9 @@ input, select { font-family: inherit; color: inherit; }
   color: var(--ink-mute);
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .insight-value {
   font-family: var(--font-mono);
@@ -742,6 +745,9 @@ input, select { font-family: inherit; color: inherit; }
   font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0 0 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .chart-sub {
   font-size: 13px;
@@ -781,6 +787,45 @@ input, select { font-family: inherit; color: inherit; }
   position: relative;
   height: 440px;
   min-height: 340px;
+}
+
+/* glossary card under chart title */
+.glossary {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.glossary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  flex-wrap: wrap;
+}
+.glossary-mark {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  align-self: center;
+  transform: translateY(-1px);
+}
+.glossary-label {
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.glossary-formula {
+  color: var(--ink-soft);
+  flex: 1;
+  min-width: 200px;
+  text-wrap: pretty;
 }
 
 .chart-foot {

@@ -232,3 +232,81 @@ test("asset projection: yearly[0] = current_price, yearly[10] = price * (1+g)^10
   assert.ok(Math.abs(btc.yearly[10] - expected) < 1e-6,
     `expected ${expected}, got ${btc.yearly[10]}`);
 });
+
+// --- Phase 2.2: geometric rescale in random paths --------------------
+
+// Deterministic PRNG (mulberry32) for reproducible random-path tests.
+function withSeed(seed, fn) {
+  const orig = Math.random;
+  let s = seed | 0;
+  Math.random = () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  try {
+    return fn();
+  } finally {
+    Math.random = orig;
+  }
+}
+
+test("random yearly path: compounded final value matches (1+target)^N", () => {
+  withSeed(42, () => {
+    const initial = 100;
+    const years = 20;
+    const targetPct = 25;
+    const { path } = randomYearlyPath(initial, years, targetPct);
+    const expected = initial * Math.pow(1 + targetPct / 100, years);
+    // Geometric rescale → equality holds to floating-point precision.
+    assert.ok(Math.abs(path[years] - expected) / expected < 1e-12,
+      `final ${path[years]} != expected ${expected}`);
+  });
+});
+
+test("random monthly path: compounded final value matches (1+target)^N", () => {
+  withSeed(99, () => {
+    const initial = 100;
+    const years = 10;
+    const targetPct = 35;
+    const { monthly } = randomMonthlyPath(initial, years, targetPct);
+    const expected = initial * Math.pow(1 + targetPct / 100, years);
+    assert.ok(Math.abs(monthly[years * 12] - expected) / expected < 1e-12,
+      `final ${monthly[years * 12]} != expected ${expected}`);
+  });
+});
+
+test("random yearly adjusted rates: geometric mean of (1+r) equals (1+target)", () => {
+  withSeed(123, () => {
+    const targetPct = 15;
+    const years = 30;
+    const { adjusted } = randomYearlyPath(100, years, targetPct);
+    const logSum = adjusted.reduce((s, r) => s + Math.log(1 + r), 0);
+    const geoMean = Math.exp(logSum / years);
+    assert.ok(Math.abs(geoMean - (1 + targetPct / 100)) < 1e-12,
+      `geomean ${geoMean} != 1.15`);
+  });
+});
+
+test("random yearly path with target=0 yields flat path", () => {
+  withSeed(7, () => {
+    const { path } = randomYearlyPath(100, 10, 0);
+    for (const x of path) assert.equal(x, 100);
+  });
+});
+
+test("end-to-end: random_generate matches deterministic at horizon (engine-level)", () => {
+  // Whole-engine smoke: with generate_random=true, dollar_rates_monthly.at(-1)
+  // should match the deterministic compound exactly thanks to geometric rescale.
+  withSeed(2026, () => {
+    const r = runProjection(baseInput({ generate_random: true }));
+    const start = 45;
+    const years = 10;
+    const expected = start * Math.pow(1 + 35 / 100, years);
+    const got = r.dollar_rates_monthly.at(-1);
+    assert.ok(Math.abs(got - expected) / expected < 1e-12,
+      `final FX ${got} != deterministic ${expected}`);
+  });
+});

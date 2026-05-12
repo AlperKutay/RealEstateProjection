@@ -30,8 +30,24 @@ function uniform(a, b) { return a + Math.random() * (b - a); }
 function randomYearlyPath(initial, years, targetAvgPct) {
   const target = targetAvgPct / 100;
   const raw = Array.from({ length: years }, () => uniform(target * 0.7, target * 1.3));
-  const mean = raw.reduce((s, x) => s + x, 0) / years;
-  const adjusted = mean !== 0 ? raw.map(r => r * (target / mean)) : raw;
+  // Rescale so that the *geometric* mean of (1+r_i) equals (1+target).
+  // That guarantees prod(1+adjusted_i) = (1+target)^years exactly, so the
+  // compounded final value matches the deterministic compound series.
+  // The previous version rescaled by arithmetic mean of r_i, which left
+  // a volatility-drag gap (final value systematically below target).
+  let adjusted;
+  const factors = raw.map(r => 1 + r);
+  if (factors.every(f => f > 0) && 1 + target > 0) {
+    const logSum = factors.reduce((s, f) => s + Math.log(f), 0);
+    const geoMean = Math.exp(logSum / years);
+    const k = (1 + target) / geoMean;
+    adjusted = factors.map(f => f * k - 1);
+  } else {
+    // Extreme negatives (1+r ≤ 0) — log is undefined. Fall back to the old
+    // arithmetic rescale; this path is rarely hit for plausible inputs.
+    const mean = raw.reduce((s, x) => s + x, 0) / years;
+    adjusted = mean !== 0 ? raw.map(r => r * (target / mean)) : raw;
+  }
   const path = [initial];
   for (const r of adjusted) path.push(path[path.length - 1] * (1 + r));
   return { path, adjusted };

@@ -66,10 +66,14 @@ Goal: the numbers we show should be defensible.
     salary path, and asset projection. Run with
     `node --test tests/projection.test.js` (commit 1e2d976).
 
-- [ ] **Geometric vs arithmetic returns in random paths**
-  - `randomYearlyPath` rescales by *arithmetic* mean. For long-horizon
-    compounding, the geometric mean is what matches the analytic compound
-    series. Write the test first to expose the gap, then fix.
+- [x] **Geometric vs arithmetic returns in random paths** — fixed.
+  `randomYearlyPath` now rescales by the *geometric* mean of `(1+r_i)`,
+  guaranteeing `prod(1+adjusted_i) = (1+target)^years` exactly. Random
+  paths no longer suffer volatility drag — the compounded final value
+  matches the deterministic compound series to floating-point precision.
+  Five new tests in `tests/projection.test.js` lock this in: yearly,
+  monthly, geomean property, target=0 edge case, and end-to-end engine
+  smoke (commit pending).
 
 - [x] **`cum_rent_usd_yearly` alignment** — fixed in commit 2e4b0ce.
   Cumulative arrays now use `prefixSum` (0 at index 0, sum-through-period-i

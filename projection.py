@@ -207,6 +207,7 @@ class ProjectionResult:
     rent_price_usd_yearly: list[float]
     cumulative_rent_price_usd_yearly: list[float]
     house_plus_rent_yearly: list[float]
+    total_credit_minus_rent_usd_yearly: list[float] = field(default_factory=list)
     salaries_usd_yearly: Optional[list[float]] = None
     payment_salary_ratio_yearly: Optional[list[float]] = None
     payment_minus_rent_over_salary_yearly: Optional[list[float]] = None
@@ -221,6 +222,7 @@ class ProjectionResult:
     rent_price_usd_monthly: list[float] = field(default_factory=list)
     cumulative_rent_price_usd_monthly: list[float] = field(default_factory=list)
     house_plus_rent_monthly: list[float] = field(default_factory=list)
+    total_credit_minus_rent_usd_monthly: list[float] = field(default_factory=list)
     salaries_usd_monthly: Optional[list[float]] = None
     payment_salary_ratio_monthly: Optional[list[float]] = None
     payment_minus_rent_over_salary_monthly: Optional[list[float]] = None
@@ -300,6 +302,8 @@ def run_projection(inp: ProjectionInput) -> ProjectionResult:
     cum_rent_usd_monthly = np.cumsum(rent_usd_monthly)
     house_plus_rent_yearly = house_usd_yearly + cum_rent_usd_yearly
     house_plus_rent_monthly = house_usd_monthly + cum_rent_usd_monthly
+    total_credit_minus_rent_yearly = total_credit_usd_annual - cum_rent_usd_yearly
+    total_credit_minus_rent_monthly = total_credit_usd_monthly - cum_rent_usd_monthly
 
     # --- Salary
     salaries_usd_yearly_arr = None
@@ -386,6 +390,8 @@ def run_projection(inp: ProjectionInput) -> ProjectionResult:
         cumulative_rent_price_usd_monthly=cum_rent_usd_monthly.tolist(),
         house_plus_rent_yearly=house_plus_rent_yearly.tolist(),
         house_plus_rent_monthly=house_plus_rent_monthly.tolist(),
+        total_credit_minus_rent_usd_yearly=total_credit_minus_rent_yearly.tolist(),
+        total_credit_minus_rent_usd_monthly=total_credit_minus_rent_monthly.tolist(),
         salaries_usd_yearly=salaries_usd_yearly_arr.tolist() if salaries_usd_yearly_arr is not None else None,
         salaries_usd_monthly=salaries_usd_monthly_arr.tolist() if salaries_usd_monthly_arr is not None else None,
         payment_salary_ratio_yearly=pay_sal_ratio_yearly.tolist() if pay_sal_ratio_yearly is not None else None,

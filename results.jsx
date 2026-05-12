@@ -70,6 +70,14 @@ const VIEW_DEFS = {
     unit: "%",
     needsSalary: true,
   },
+  salary_net: {
+    titleKey: "view_salary_net", subKey: "view_salary_net_sub", methodKey: "view_salary_net_method",
+    series: [
+      { key: "payment_minus_rent_over_salary", labelKey: "view_salary_net", formulaKey: "sf_salary_net_ratio", color: 2, offset: 1, isRatio: true },
+    ],
+    unit: "%",
+    needsSalary: true,
+  },
   macro: {
     titleKey: "view_macro", subKey: "view_macro_sub", methodKey: "view_macro_method",
     series: [
@@ -89,6 +97,7 @@ const SERIES_FIELDS = {
   cumulative_rent: ["cumulative_rent_price_usd_yearly", "cumulative_rent_price_usd_monthly"],
   total_credit_minus_rent: ["total_credit_minus_rent_usd_yearly", "total_credit_minus_rent_usd_monthly"],
   payment_salary_ratio: ["payment_salary_ratio_yearly", "payment_salary_ratio_monthly"],
+  payment_minus_rent_over_salary: ["payment_minus_rent_over_salary_yearly", "payment_minus_rent_over_salary_monthly"],
   dollar_rates: ["dollar_rates_annual", "dollar_rates_monthly"],
 };
 
@@ -480,6 +489,7 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
     { id: "rent_vs", available: true },
     { id: "payment", available: true },
     { id: "salary", available: hasSalary },
+    { id: "salary_net", available: hasSalary },
     { id: "macro", available: true },
   ].filter((v) => v.available);
 

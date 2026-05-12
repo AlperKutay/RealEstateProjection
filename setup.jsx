@@ -146,8 +146,9 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
     { id: "house", label: t("tab_house"), icon: "1" },
     { id: "macro", label: t("tab_macro"), icon: "2" },
     { id: "life", label: t("tab_life"), icon: "3" },
-    { id: "assets", label: t("tab_assets"), icon: "4" },
-    { id: "advanced", label: t("tab_advanced"), icon: "5" },
+    { id: "costs", label: t("tab_costs"), icon: "4" },
+    { id: "assets", label: t("tab_assets"), icon: "5" },
+    { id: "advanced", label: t("tab_advanced"), icon: "6" },
   ];
 
   const fmtTL = (n) => n.toLocaleString("tr-TR") + " ₺";
@@ -184,6 +185,18 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                 <input type="text" readOnly value={fmtTL(Math.max(0, loan))} style={{ color: "var(--ink-soft)" }} />
               </div>
             </Field>
+            {form.transaction_cost_buy_pct > 0 && (
+              <Field label={`+ ${t("f_buy_tx_summary")}`} hint={<>{form.transaction_cost_buy_pct}% × {t("f_value")}</>}>
+                <div className="input-wrap" style={{ background: "var(--surface-2)" }}>
+                  <input
+                    type="text"
+                    readOnly
+                    value={fmtTL(Math.round(form.value_of_house_tl * form.transaction_cost_buy_pct / 100))}
+                    style={{ color: "var(--ink-soft)" }}
+                  />
+                </div>
+              </Field>
+            )}
           </div>
 
           <p className="section-label" style={{ marginTop: 22 }}>{t("group_loan")}</p>
@@ -257,6 +270,42 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                   onChange={(v) => setF({ euro_dollar_rate: v })} />
               </Field>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === "costs" && (
+        <div>
+          <p className="section-label">{t("group_carrying")}</p>
+          <div className="fields">
+            <Field label={t("f_annual_property_tax_rate")} helpText={t("f_annual_property_tax_rate_help")}>
+              <NumInput value={form.annual_property_tax_rate} step={0.05} min={0} unit={t("f_annual_property_tax_rate_unit")}
+                onChange={(v) => setF({ annual_property_tax_rate: v })} />
+            </Field>
+            <Field label={t("f_monthly_hoa_tl")} helpText={t("f_monthly_hoa_tl_help")}>
+              <NumInput value={form.monthly_hoa_tl} step={100} min={0} unit={t("f_monthly_hoa_tl_unit")}
+                onChange={(v) => setF({ monthly_hoa_tl: v })} />
+            </Field>
+            <Field label={t("f_annual_dask_tl")} helpText={t("f_annual_dask_tl_help")}>
+              <NumInput value={form.annual_dask_tl} step={100} min={0} unit={t("f_annual_dask_tl_unit")}
+                onChange={(v) => setF({ annual_dask_tl: v })} />
+            </Field>
+            <Field label={t("f_annual_maintenance_rate")} helpText={t("f_annual_maintenance_rate_help")}>
+              <NumInput value={form.annual_maintenance_rate} step={0.1} min={0} unit={t("f_annual_maintenance_rate_unit")}
+                onChange={(v) => setF({ annual_maintenance_rate: v })} />
+            </Field>
+          </div>
+
+          <p className="section-label" style={{ marginTop: 22 }}>{t("group_transaction")}</p>
+          <div className="fields">
+            <Field label={t("f_transaction_cost_buy_pct")} helpText={t("f_transaction_cost_buy_pct_help")}>
+              <NumInput value={form.transaction_cost_buy_pct} step={0.5} min={0} unit={t("f_transaction_cost_buy_pct_unit")}
+                onChange={(v) => setF({ transaction_cost_buy_pct: v })} />
+            </Field>
+            <Field label={t("f_transaction_cost_sell_pct")} helpText={t("f_transaction_cost_sell_pct_help")}>
+              <NumInput value={form.transaction_cost_sell_pct} step={0.5} min={0} unit={t("f_transaction_cost_sell_pct_unit")}
+                onChange={(v) => setF({ transaction_cost_sell_pct: v })} />
+            </Field>
           </div>
         </div>
       )}

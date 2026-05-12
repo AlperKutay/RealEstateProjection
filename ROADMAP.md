@@ -35,22 +35,22 @@ Goal: turn the tool from "interesting chart" into "actually helps decide".
   (`balanced` / `conservative` / `optimistic` / `custom`) live in
   `window.PRESETS` and `window.PRESET_META`.
 
-- [ ] **Phase 1.6: Wire engine features into the React UI**
-  The React UI (commit f9ca154) doesn't yet surface every Phase 1 field.
-  Engine still computes them — they default to 0 via `?? 0` so nothing
-  breaks. Pending hookups:
-  - Form inputs for `annual_property_tax_rate`, `monthly_hoa_tl`,
-    `annual_dask_tl`, `annual_maintenance_rate`,
-    `transaction_cost_buy_pct`, `transaction_cost_sell_pct`. Suggest a
-    new "Ownership Costs" tab in `FormTabs`.
-  - Add those fields to every preset in `i18n.js`.
-  - Replace the naive yearly break-even check in `results.jsx`
-    (currently `house_plus_rent > total_credit`) with the engine's
-    `result.breakeven_month`.
-  - Plot views for `remaining_loan_usd_*`, `net_buy_position_usd_*`,
-    `total_credit_minus_rent_usd_*`, `cumulative_ownership_cost_usd_*`,
-    `net_sale_value_usd_*` (add to `SERIES_FIELDS` + `VIEW_DEFS`).
-  - Show the "+ Alış Giderleri: X TL" line near the down-payment input.
+- [x] **Phase 1.6: Wire engine features into the React UI** — closed.
+  - 'Giderler' / 'Costs' tab in FormTabs with all 6 Phase 1 inputs
+    (vergi / aidat / DASK / bakım / alış / satış), help icons, units,
+    preset values for all four presets (commit 4c3e626).
+  - '+ Alış Giderleri' read-only line under loan amount in House tab.
+  - Break-even insight card now uses engine's `breakeven_month`
+    (commit 897b73c).
+  - Chart series wired for `total_credit_minus_rent` (in rent_vs view),
+    `net_buy_position_usd` (new 'Almak kazandırıyor mu?' view),
+    `remaining_loan_usd` (new 'Kalan kredi yükü' view), and the
+    salary view now shows gross + net-of-rent ratios side by side
+    (commits 897b73c, 4c3e626, 794818c, 14810a6).
+  - New 'Net ödeme (kira düşülmüş)' insight card.
+  - `cumulative_ownership_cost_*` and `net_sale_value_*` series are
+    still produced by the engine but not yet plotted (could go in
+    a future 'Sahiplik maliyeti detayı' view if user demand emerges).
 
 ---
 

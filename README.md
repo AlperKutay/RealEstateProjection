@@ -19,15 +19,24 @@ Then open <http://localhost:8000/>.
 
 ```
 /
-├── index.html        Markup (Alpine.js + Tailwind, CDN-loaded)
-├── app.js            Alpine component: form state, translations, chart
-├── projection.js     Pure math engine — single source of truth
-├── style.css         Custom styles on top of Tailwind
+├── index.html        Markup; loads React + Babel + Chart.js from CDN
+├── app.jsx           Top-level <App/>: lang, presets, view router (setup ↔ results)
+├── setup.jsx         Setup screen: preset picker + tabbed form with tooltips
+├── results.jsx       Results screen: insight cards, verdict, chart views, details
+├── tweaks-panel.jsx  Floating tweaks panel (theme, accent, toggles) — host protocol
+├── i18n.js           TR/EN translations + PRESETS + PRESET_META
+├── projection.js     Pure math engine — single source of truth (window.runProjection)
+├── styles.css        Custom CSS (Geist font, OKLCH palette, light/dark themes)
 ├── assets.json       Snapshot of yfinance returns for the asset list
 ├── README.md
 ├── ROADMAP.md
 └── CLAUDE.md         Notes for AI assistants
 ```
+
+JSX files are compiled in the browser by `@babel/standalone`. There is
+still **no build step** — every file is served as-is and the browser does
+the JSX → JS transform on load. Slower than a bundler, fine for a small
+client-side app, and keeps GitHub Pages deploys instant.
 
 ## Supported asset list
 

@@ -56,6 +56,7 @@ const VIEW_DEFS = {
     series: [
       { key: "house_plus_rent", labelKey: "view_rent_vs", formulaKey: "sf_house_plus_rent", color: 2 },
       { key: "total_credit_amount_usd", labelKey: "i_total_paid", formulaKey: "sf_total_paid", color: 0, dash: true },
+      { key: "total_credit_minus_rent", labelKey: "i_net_payment", formulaKey: "sf_net_payment", color: 3 },
       { key: "cumulative_rent", labelKey: "f_rent", formulaKey: "sf_cum_rent", color: 5 },
     ],
     includeAssets: true,
@@ -86,6 +87,7 @@ const SERIES_FIELDS = {
   monthly_payment_usd: ["annual_payment_usd", "monthly_payment_usd"],
   rent_price_usd: ["rent_price_usd_yearly", "rent_price_usd_monthly"],
   cumulative_rent: ["cumulative_rent_price_usd_yearly", "cumulative_rent_price_usd_monthly"],
+  total_credit_minus_rent: ["total_credit_minus_rent_usd_yearly", "total_credit_minus_rent_usd_monthly"],
   payment_salary_ratio: ["payment_salary_ratio_yearly", "payment_salary_ratio_monthly"],
   dollar_rates: ["dollar_rates_annual", "dollar_rates_monthly"],
 };
@@ -112,16 +114,15 @@ function fmtPct(n) {
   return (n * 100).toFixed(1) + "%";
 }
 
-// Compute breakeven year: first year where (house+rent) > total_credit
-function findBreakeven(result) {
-  const a = result.house_plus_rent_yearly;
-  const b = result.total_credit_amount_usd_annual;
-  if (!a || !b) return null;
-  const n = Math.min(a.length, b.length);
-  for (let i = 0; i < n; i++) {
-    if (a[i] > b[i]) return i;
-  }
-  return -1;
+// Convert engine breakeven_month (or null) to display year (1-indexed) or -1 for "never".
+// breakeven_month is the first month where net_buy_position >= 0 — i.e. the
+// month where selling at today's price would cover everything you spent more
+// than rent, including remaining loan, carrying costs and transaction costs.
+function breakevenYear(result) {
+  const m = result.breakeven_month;
+  if (m == null) return -1;
+  if (m <= 0) return 0;
+  return Math.ceil(m / 12);
 }
 
 // Best asset gain at end vs initial price
@@ -145,7 +146,7 @@ function bestAlternative(result, downPaymentUsd) {
 // ---------------- Components ----------------
 
 function InsightCards({ result, form, t, lang }) {
-  const breakeven = findBreakeven(result);
+  const breakeven = breakevenYear(result);
   const houseUsd = result.value_of_house_usd_yearly;
   const startHouse = houseUsd[0];
   const endHouse = houseUsd[houseUsd.length - 1];
@@ -153,6 +154,9 @@ function InsightCards({ result, form, t, lang }) {
   const downUsd = result.initial_noncredit_amount_usd;
   const bestAlt = bestAlternative(result, downUsd);
   const realCostUsd = result.total_credit_amount_usd_annual.at(-1);
+  const netPaymentUsd = result.total_credit_minus_rent_usd_yearly
+    ? result.total_credit_minus_rent_usd_yearly.at(-1)
+    : null;
 
   return (
     <div className="insights">
@@ -197,10 +201,21 @@ function InsightCards({ result, form, t, lang }) {
 
       <div className="insight">
         <div className="insight-label">
+          {t("i_net_payment")}
+          <HelpIcon text={lang === "tr"
+            ? "Reel maliyetten, kiracı kalsaydınız ödeyeceğiniz biriken kira tutarı düşülür. Ev sahibi olmanın kira karşısındaki net cep maliyeti (USD)."
+            : "Real cost minus the cumulative rent you'd pay as a renter. Net out-of-pocket USD cost of owning vs renting."} />
+        </div>
+        <div className="insight-value">{fmtUSD(netPaymentUsd)}</div>
+        <div className="insight-note">{t("i_net_payment_note")}</div>
+      </div>
+
+      <div className="insight">
+        <div className="insight-label">
           {t("i_breakeven")}
           <HelpIcon text={lang === "tr"
-            ? "(Ev değeri + biriken kira) ilk kez (peşinat + ödenen taksitler) toplamını geçtiği yıl. Ev sahibi olmanın net pozitife geçtiği nokta."
-            : "First year where (home value + cumulative rent saved) exceeds (down payment + installments paid). When ownership turns net-positive."} />
+            ? "Evi bugünkü fiyatla satıp kalan krediyi kapatıp, ödediğiniz net tutarı çıkardıktan sonra elinizde artı kaldığı ilk yıl. Kira tasarrufu, kalan kredi ve giderler hesaba katılır."
+            : "First year where selling the home at today's price, paying off the remaining loan, and netting against what you spent vs renting leaves you positive. Accounts for rent saved, remaining loan, and carry costs."} />
         </div>
         <div className="insight-value">
           {breakeven === -1 ? "—" : breakeven === 0 ? "Y1" : `Y${breakeven}`}

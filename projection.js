@@ -62,6 +62,14 @@ function cumsum(a) {
   for (let i = 0; i < a.length; i++) { s += a[i]; out[i] = s; }
   return out;
 }
+// Exclusive prefix sum, same length as input. out[0] = 0; out[i] = sum of a[0..i-1].
+// Use for "cumulative paid through period i" — at i=0 nothing has been paid yet.
+function prefixSum(a) {
+  const out = new Array(a.length);
+  out[0] = 0;
+  for (let i = 1; i < a.length; i++) out[i] = out[i - 1] + a[i - 1];
+  return out;
+}
 
 // ---------------- intermediate helpers ----------------
 
@@ -137,14 +145,32 @@ function runProjection(inp) {
   const cumPaymentUsdAnnual = cumsum(annualPaymentUsd);
   const cumPaymentUsdMonthly = cumsum(monthlyPaymentUsd);
 
+  // Remaining loan balance per month (standard amortization), nominal TL
+  const remainingLoanTlMonthly = new Array(nMonths + 1);
+  remainingLoanTlMonthly[0] = loan;
+  const rMonthly = inp.interest_rate / 100;
+  for (let m = 1; m <= nMonths; m++) {
+    const interest = remainingLoanTlMonthly[m - 1] * rMonthly;
+    const principalPart = monthlyTlPayment - interest;
+    remainingLoanTlMonthly[m] = Math.max(0, remainingLoanTlMonthly[m - 1] - principalPart);
+  }
+  const remainingLoanTlYearly = Array.from({ length: inp.years + 1 }, (_, y) => remainingLoanTlMonthly[y * 12]);
+  const remainingLoanUsdMonthly = div(remainingLoanTlMonthly, dollarRatesMonthly);
+  const remainingLoanUsdYearly = div(remainingLoanTlYearly, dollarRatesAnnual);
+
   const initialNoncreditUsd = inp.initial_noncredit_amount_tl / inp.start_dollar_tl;
   // One-time closing cost on purchase (tapu harcı + komisyon + taşınma):
   // folded into the t=0 outlay so all downstream "cost of ownership" series include it.
   const buyTxTl = inp.value_of_house_tl * ((inp.transaction_cost_buy_pct ?? 0) / 100);
   const buyTxUsd = buyTxTl / inp.start_dollar_tl;
   const initialOutlayUsd = initialNoncreditUsd + buyTxUsd;
-  const totalCreditUsdAnnual = [initialOutlayUsd, ...cumPaymentUsdAnnual.map(x => x + initialOutlayUsd)];
   const totalCreditUsdMonthly = [initialOutlayUsd, ...cumPaymentUsdMonthly.map(x => x + initialOutlayUsd)];
+  // Yearly cumulative outlay sampled from monthly so per-month FX averages are
+  // preserved (yearly-only USD conversion overestimates dollar value of early
+  // payments because it uses the year-start rate for the whole year).
+  const totalCreditUsdAnnual = Array.from(
+    { length: inp.years + 1 }, (_, y) => totalCreditUsdMonthly[y * 12],
+  );
 
   // House value
   let houseTlYearly, houseTlMonthly;
@@ -184,8 +210,12 @@ function runProjection(inp) {
 
   const rentUsdYearly = div(rentTlYearly, dollarRatesAnnual);
   const rentUsdMonthly = div(rentTlMonthly, dollarRatesMonthly);
-  const cumRentUsdYearly = cumsum(rentUsdYearly);
-  const cumRentUsdMonthly = cumsum(rentUsdMonthly);
+  // prefixSum so that cumRent[i] = rent paid through period i, with [0] = 0.
+  // Yearly sampled from monthly for cross-resolution consistency.
+  const cumRentUsdMonthly = prefixSum(rentUsdMonthly);
+  const cumRentUsdYearly = Array.from(
+    { length: inp.years + 1 }, (_, y) => cumRentUsdMonthly[y * 12],
+  );
   const housePlusRentYearly = add(houseUsdYearly, cumRentUsdYearly);
   const housePlusRentMonthly = add(houseUsdMonthly, cumRentUsdMonthly);
 
@@ -205,8 +235,10 @@ function runProjection(inp) {
   carryingTlMonthly.push(carryingTlYearly[carryingTlYearly.length - 1] / 12);
   const carryingUsdYearly = div(carryingTlYearly, dollarRatesAnnual);
   const carryingUsdMonthly = div(carryingTlMonthly, dollarRatesMonthly);
-  const cumCarryingUsdYearly = cumsum(carryingUsdYearly);
-  const cumCarryingUsdMonthly = cumsum(carryingUsdMonthly);
+  const cumCarryingUsdMonthly = prefixSum(carryingUsdMonthly);
+  const cumCarryingUsdYearly = Array.from(
+    { length: inp.years + 1 }, (_, y) => cumCarryingUsdMonthly[y * 12],
+  );
 
   // Net ownership cost = (down + paid + carrying) − rent saved
   const totalCreditMinusRentYearly = sub(
@@ -251,6 +283,23 @@ function runProjection(inp) {
       { length: len },
       (_, i) => (monthlyPaymentUsd[i] - rentUsdMonthly[i + 1]) / salM[i],
     );
+  }
+
+  // Net position from buying vs renting at month m, assuming you sold today:
+  //   (sale proceeds − remaining loan) − net cash spent vs renting
+  // Positive → buying has paid off. Break-even is the first month it crosses 0.
+  const netBuyPositionMonthly = netSaleValueUsdMonthly.map(
+    (sv, i) => sv - remainingLoanUsdMonthly[i] - totalCreditMinusRentMonthly[i],
+  );
+  const netBuyPositionYearly = netSaleValueUsdYearly.map(
+    (sv, i) => sv - remainingLoanUsdYearly[i] - totalCreditMinusRentYearly[i],
+  );
+  let breakevenMonth = null;
+  for (let m = 1; m < netBuyPositionMonthly.length; m++) {
+    if (netBuyPositionMonthly[m] >= 0) {
+      breakevenMonth = m;
+      break;
+    }
   }
 
   // Assets
@@ -305,6 +354,11 @@ function runProjection(inp) {
     sell_transaction_cost_usd_monthly: sellTxUsdMonthly,
     net_sale_value_usd_yearly: netSaleValueUsdYearly,
     net_sale_value_usd_monthly: netSaleValueUsdMonthly,
+    remaining_loan_usd_yearly: remainingLoanUsdYearly,
+    remaining_loan_usd_monthly: remainingLoanUsdMonthly,
+    net_buy_position_usd_yearly: netBuyPositionYearly,
+    net_buy_position_usd_monthly: netBuyPositionMonthly,
+    breakeven_month: breakevenMonth,
     salaries_usd_yearly: salariesUsdYearly,
     salaries_usd_monthly: salariesUsdMonthly,
     payment_salary_ratio_yearly: paymentSalaryRatioYearly,

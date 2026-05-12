@@ -234,7 +234,7 @@
     <main class="space-y-4">
 
       <!-- Summary -->
-      <div x-show="hasResult" class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div x-show="hasResult" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <div class="bg-slate-900 rounded-lg p-3 border border-slate-800">
           <div class="text-xs text-slate-400" x-text="t('summary_monthly_tl')"></div>
           <div class="text-xl font-bold text-emerald-400" x-text="summary ? fmt(summary.monthly_tl_payment) + ' TL' : ''"></div>
@@ -250,6 +250,12 @@
         <div class="bg-slate-900 rounded-lg p-3 border border-slate-800">
           <div class="text-xs text-slate-400" x-text="t('summary_house_usd')"></div>
           <div class="text-xl font-bold text-violet-400" x-text="summary ? fmt(summary.value_of_house_usd) + ' USD' : ''"></div>
+        </div>
+        <div class="bg-slate-900 rounded-lg p-3 border border-slate-800 col-span-2 md:col-span-3 lg:col-span-1">
+          <div class="text-xs text-slate-400" x-text="t('summary_breakeven')"></div>
+          <div class="text-xl font-bold"
+               :class="summary && summary.breakeven_month != null ? 'text-rose-400' : 'text-slate-500'"
+               x-text="summary ? fmtBreakeven(summary.breakeven_month) : ''"></div>
         </div>
       </div>
 

@@ -47,6 +47,10 @@ const TRANSLATIONS = {
     summary_total_tl: "Toplam Ödenen TL",
     summary_loan: "Kredi",
     summary_house_usd: "Başlangıç Ev (USD)",
+    summary_breakeven: "Başa Baş",
+    breakeven_never: "Vade içinde yok",
+    year_short: "y",
+    month_short: "ay",
     details: "Detaylar",
     hint: "Sol panelden parametreleri ayarlayıp Grafik Oluştur'a basın.",
     // plots
@@ -56,6 +60,8 @@ const TRANSLATIONS = {
     total_credit_minus_rent: "Net Sahiplik Maliyeti (Peşinat + Ödeme + Giderler − Kira) USD",
     cumulative_ownership_cost: "Kümülatif Ev Gideri (USD)",
     net_sale_value_usd: "Net Satış Değeri (Komisyon sonrası) USD",
+    net_buy_position: "Almanın Net Pozisyonu (USD)",
+    remaining_loan: "Kalan Kredi (USD)",
     cumulative_payment: "Kümülatif Ödeme (USD)",
     house_value_usd: "Ev Değeri (USD)",
     rent_price_usd: "Aylık Kira (USD)",
@@ -109,6 +115,10 @@ const TRANSLATIONS = {
     summary_total_tl: "Total Paid TL",
     summary_loan: "Loan",
     summary_house_usd: "Initial House (USD)",
+    summary_breakeven: "Break-even",
+    breakeven_never: "Not within term",
+    year_short: "y",
+    month_short: "m",
     details: "Details",
     hint: "Set parameters on the left and click Generate.",
     monthly_payment_usd: "Monthly Payment (USD)",
@@ -117,6 +127,8 @@ const TRANSLATIONS = {
     total_credit_minus_rent: "Net Ownership Cost (Down + Paid + Carry − Rent) USD",
     cumulative_ownership_cost: "Cumulative Carry Cost (USD)",
     net_sale_value_usd: "Net Sale Value (after commission) USD",
+    net_buy_position: "Net Buy Position (USD)",
+    remaining_loan: "Remaining Loan (USD)",
     cumulative_payment: "Cumulative Payment (USD)",
     house_value_usd: "House Value (USD)",
     rent_price_usd: "Monthly Rent (USD)",
@@ -133,8 +145,10 @@ const PLOT_ORDER = [
   "total_credit_amount",
   "total_credit_minus_rent",
   "cumulative_ownership_cost",
+  "net_buy_position",
   "house_value_usd",
   "net_sale_value_usd",
+  "remaining_loan",
   "house_plus_rent",
   "dollar_rates",
   "rent_price_usd",
@@ -153,6 +167,8 @@ const SERIES_MAP = {
   total_credit_minus_rent: { yearly: "total_credit_minus_rent_usd_yearly", monthly: "total_credit_minus_rent_usd_monthly" },
   cumulative_ownership_cost: { yearly: "cumulative_ownership_cost_usd_yearly", monthly: "cumulative_ownership_cost_usd_monthly" },
   net_sale_value_usd: { yearly: "net_sale_value_usd_yearly", monthly: "net_sale_value_usd_monthly" },
+  net_buy_position: { yearly: "net_buy_position_usd_yearly", monthly: "net_buy_position_usd_monthly" },
+  remaining_loan: { yearly: "remaining_loan_usd_yearly", monthly: "remaining_loan_usd_monthly" },
   cumulative_payment: { yearly: "cumulative_payment_usd_annual", monthly: "cumulative_payment_usd_monthly", offset: 1 },
   house_value_usd: { yearly: "value_of_house_usd_yearly", monthly: "value_of_house_usd_monthly" },
   rent_price_usd: { yearly: "rent_price_usd_yearly", monthly: "rent_price_usd_monthly" },
@@ -232,6 +248,15 @@ function projectionApp() {
     fmt(n) {
       if (n == null || isNaN(n)) return "—";
       return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    },
+
+    fmtBreakeven(months) {
+      if (months == null) return this.t("breakeven_never");
+      const y = Math.floor(months / 12);
+      const m = months % 12;
+      const yPart = y > 0 ? `${y}${this.t("year_short")}` : "";
+      const mPart = m > 0 ? `${m}${this.t("month_short")}` : "";
+      return [yPart, mPart].filter(Boolean).join(" ") || `0${this.t("month_short")}`;
     },
 
     async init() {
@@ -348,6 +373,7 @@ function projectionApp() {
           total_paid_tl: _result.total_paid_tl,
           loan_amount_tl: _result.loan_amount_tl,
           value_of_house_usd: _result.value_of_house_usd,
+          breakeven_month: _result.breakeven_month,
         };
         this.hasResult = true;
         this.renderChart();

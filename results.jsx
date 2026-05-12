@@ -57,7 +57,7 @@ const VIEW_DEFS = {
       { key: "house_plus_rent", labelKey: "view_rent_vs", formulaKey: "sf_house_plus_rent", color: 2 },
       { key: "total_credit_amount_usd", labelKey: "i_total_paid", formulaKey: "sf_total_paid", color: 0, dash: true },
       { key: "total_credit_minus_rent", labelKey: "i_net_payment", formulaKey: "sf_net_payment", color: 3 },
-      { key: "cumulative_rent", labelKey: "f_rent", formulaKey: "sf_cum_rent", color: 5 },
+      { key: "cumulative_rent", labelKey: "f_cum_rent", formulaKey: "sf_cum_rent", color: 5 },
     ],
     includeAssets: true,
     unit: "USD",

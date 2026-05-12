@@ -86,6 +86,7 @@ window.I18N = {
     f_rent: "Aylık kira",
     f_rent_unit: "₺",
     f_rent_help: "Eğer ev almazsanız ödeyeceğiniz mevcut aylık kira.",
+    f_cum_rent: "Toplam kira getirisi",
 
     f_salary_currency: "Maaş para birimi",
     f_salary_amount: "Yıllık net maaş",
@@ -240,6 +241,7 @@ window.I18N = {
     f_rent: "Monthly rent",
     f_rent_unit: "₺",
     f_rent_help: "Current monthly rent you'd pay if you don't buy.",
+    f_cum_rent: "Total rent",
     f_salary_currency: "Salary currency",
     f_salary_amount: "Annual net salary",
     f_salary_growth: "Salary growth/yr",

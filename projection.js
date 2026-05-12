@@ -175,8 +175,35 @@ function runProjection(inp) {
   const cumRentUsdMonthly = cumsum(rentUsdMonthly);
   const housePlusRentYearly = add(houseUsdYearly, cumRentUsdYearly);
   const housePlusRentMonthly = add(houseUsdMonthly, cumRentUsdMonthly);
-  const totalCreditMinusRentYearly = sub(totalCreditUsdAnnual, cumRentUsdYearly);
-  const totalCreditMinusRentMonthly = sub(totalCreditUsdMonthly, cumRentUsdMonthly);
+
+  // Property carrying costs: property tax + HOA + DASK + maintenance
+  // Property tax & maintenance scale with house value; HOA & DASK with inflation.
+  const propTaxRate = (inp.annual_property_tax_rate ?? 0) / 100;
+  const maintRate = (inp.annual_maintenance_rate ?? 0) / 100;
+  const hoaTlYearly = compoundSeries((inp.monthly_hoa_tl ?? 0) * 12, turkeyInflationAnnual, inp.years);
+  const daskTlYearly = compoundSeries(inp.annual_dask_tl ?? 0, turkeyInflationAnnual, inp.years);
+  const carryingTlYearly = houseTlYearly.map((h, i) =>
+    h * propTaxRate + h * maintRate + hoaTlYearly[i] + daskTlYearly[i],
+  );
+  const carryingTlMonthly = [];
+  for (let i = 0; i < carryingTlYearly.length - 1; i++) {
+    for (let j = 0; j < 12; j++) carryingTlMonthly.push(carryingTlYearly[i] / 12);
+  }
+  carryingTlMonthly.push(carryingTlYearly[carryingTlYearly.length - 1] / 12);
+  const carryingUsdYearly = div(carryingTlYearly, dollarRatesAnnual);
+  const carryingUsdMonthly = div(carryingTlMonthly, dollarRatesMonthly);
+  const cumCarryingUsdYearly = cumsum(carryingUsdYearly);
+  const cumCarryingUsdMonthly = cumsum(carryingUsdMonthly);
+
+  // Net ownership cost = (down + paid + carrying) − rent saved
+  const totalCreditMinusRentYearly = sub(
+    add(totalCreditUsdAnnual, cumCarryingUsdYearly),
+    cumRentUsdYearly,
+  );
+  const totalCreditMinusRentMonthly = sub(
+    add(totalCreditUsdMonthly, cumCarryingUsdMonthly),
+    cumRentUsdMonthly,
+  );
 
   // Salary
   let salariesUsdYearly = null, salariesUsdMonthly = null;
@@ -255,6 +282,10 @@ function runProjection(inp) {
     house_plus_rent_monthly: housePlusRentMonthly,
     total_credit_minus_rent_usd_yearly: totalCreditMinusRentYearly,
     total_credit_minus_rent_usd_monthly: totalCreditMinusRentMonthly,
+    ownership_cost_usd_yearly: carryingUsdYearly,
+    ownership_cost_usd_monthly: carryingUsdMonthly,
+    cumulative_ownership_cost_usd_yearly: cumCarryingUsdYearly,
+    cumulative_ownership_cost_usd_monthly: cumCarryingUsdMonthly,
     salaries_usd_yearly: salariesUsdYearly,
     salaries_usd_monthly: salariesUsdMonthly,
     payment_salary_ratio_yearly: paymentSalaryRatioYearly,

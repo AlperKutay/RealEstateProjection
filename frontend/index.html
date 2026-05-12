@@ -11,7 +11,7 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
-<div x-data="projectionApp()" x-init="init()" class="max-w-[1600px] mx-auto p-4 lg:p-8">
+<div x-data="projectionApp()" x-init="init()" class="max-w-[1800px] mx-auto p-4 lg:p-6">
 
   <!-- Header -->
   <header class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
@@ -30,161 +30,171 @@
     </div>
   </header>
 
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <div class="space-y-6">
 
-    <!-- Sidebar: form -->
-    <aside class="lg:col-span-4 xl:col-span-3 space-y-4">
+    <!-- Top: form -->
+    <section class="space-y-4">
 
-      <!-- Loan -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('loan')"></h2>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="field">
-            <span class="field-label" x-text="t('years')"></span>
-            <input type="number" min="1" max="30" x-model.number="form.years" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('interest_rate')"></span>
-            <input type="number" step="0.01" x-model.number="form.interest_rate" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('value_of_house')"></span>
-            <input type="number" step="0.01" x-model.number="houseValueM" class="input-field" />
-            <span class="field-hint" x-text="form.value_of_house_tl.toLocaleString() + ' TL'"></span>
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('down_payment')"></span>
-            <input type="number" step="0.01" x-model.number="downPaymentM" class="input-field" />
-            <span class="field-hint" x-text="form.initial_noncredit_amount_tl.toLocaleString() + ' TL'"></span>
-          </label>
-        </div>
-        <div class="text-xs text-slate-400 pt-3 mt-3 border-t border-slate-800 flex justify-between">
-          <span x-text="t('loan_amount')"></span>
-          <strong class="text-emerald-400 font-mono" x-text="(form.value_of_house_tl - form.initial_noncredit_amount_tl).toLocaleString() + ' TL'"></strong>
-        </div>
-      </section>
+      <!-- Row 1: numeric inputs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
-      <!-- Macro -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('macro')"></h2>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="field">
-            <span class="field-label" x-text="t('start_dollar')"></span>
-            <input type="number" step="0.01" x-model.number="form.start_dollar_tl" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('dollar_growth')"></span>
-            <input type="number" step="0.1" x-model.number="form.dollar_growth_rate" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('turkey_inflation')"></span>
-            <input type="number" step="0.1" x-model.number="form.turkey_inflation" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('usa_inflation')"></span>
-            <input type="number" step="0.1" x-model.number="form.usa_inflation" class="input-field" />
-          </label>
-        </div>
-      </section>
-
-      <!-- Rent & Salary side by side -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('rent_section') + ' / ' + t('salary')"></h2>
-        <div class="grid grid-cols-2 gap-3">
-          <label class="field col-span-2">
-            <span class="field-label" x-text="t('monthly_rent')"></span>
-            <input type="number" x-model.number="form.initial_monthly_rent_tl" class="input-field" />
-          </label>
-          <label class="field">
-            <span class="field-label" x-text="t('salary_currency')"></span>
-            <select x-model="form.salary_currency" class="input-field">
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="TL">TL</option>
-            </select>
-          </label>
-          <label class="field" x-show="form.salary_currency==='EUR'">
-            <span class="field-label" x-text="t('euro_dollar')"></span>
-            <input type="number" step="0.01" x-model.number="form.euro_dollar_rate" class="input-field" />
-          </label>
-          <label class="field" :class="form.salary_currency==='EUR' ? 'col-span-2' : ''">
-            <span class="field-label" x-text="t('salary_annual')"></span>
-            <input type="number" x-model.number="form.start_salary_base" class="input-field" />
-          </label>
-          <label class="field col-span-2">
-            <span class="field-label" x-text="t('salary_growth')"></span>
-            <input type="number" step="0.1" x-model.number="form.salary_growth" class="input-field" />
-          </label>
-        </div>
-      </section>
-
-      <!-- Toggles -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('options')"></h2>
-        <div class="grid grid-cols-1 gap-1.5">
-          <label class="toggle">
-            <input type="checkbox" x-model="form.use_months" class="accent-emerald-500" />
-            <span x-text="t('use_months')"></span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" x-model="form.deflate_dollar_by_us_inflation" class="accent-emerald-500" />
-            <span x-text="t('deflate_us')"></span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" x-model="form.generate_random" class="accent-emerald-500" />
-            <span x-text="t('random')"></span>
-          </label>
-          <label class="toggle">
-            <input type="checkbox" x-model="form.project_initial_money_with_asset" class="accent-emerald-500" />
-            <span x-text="t('project_initial')"></span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Plot selection -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('plots')"></h2>
-        <div class="grid grid-cols-1 gap-1.5">
-          <template x-for="key in plotOrder" :key="key">
-            <label class="toggle">
-              <input type="checkbox" :value="key" x-model="selectedPlots" class="accent-emerald-500" />
-              <span x-text="t(key)"></span>
+        <!-- Loan -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <h2 class="section-title" x-text="t('loan')"></h2>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="field">
+              <span class="field-label" x-text="t('years')"></span>
+              <input type="number" min="1" max="30" x-model.number="form.years" class="input-field" />
             </label>
-          </template>
-        </div>
-      </section>
-
-      <!-- Assets -->
-      <section class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <h2 class="section-title" x-text="t('assets')"></h2>
-        <div class="grid grid-cols-2 gap-1.5">
-          <template x-for="sym in supportedAssets" :key="sym">
-            <label class="toggle">
-              <input type="checkbox" :value="sym" x-model="selectedAssets" class="accent-emerald-500" />
-              <span x-text="sym" class="font-medium"></span>
-              <span x-show="assetInfo[sym]" class="text-xs text-slate-500 ml-auto"
-                    x-text="assetInfo[sym] ? assetInfo[sym].average_growth.toFixed(1) + '%' : ''"></span>
+            <label class="field">
+              <span class="field-label" x-text="t('interest_rate')"></span>
+              <input type="number" step="0.01" x-model.number="form.interest_rate" class="input-field" />
             </label>
-          </template>
+            <label class="field">
+              <span class="field-label" x-text="t('value_of_house')"></span>
+              <input type="number" step="0.01" x-model.number="houseValueM" class="input-field" />
+              <span class="field-hint" x-text="form.value_of_house_tl.toLocaleString() + ' TL'"></span>
+            </label>
+            <label class="field">
+              <span class="field-label" x-text="t('down_payment')"></span>
+              <input type="number" step="0.01" x-model.number="downPaymentM" class="input-field" />
+              <span class="field-hint" x-text="form.initial_noncredit_amount_tl.toLocaleString() + ' TL'"></span>
+            </label>
+          </div>
+          <div class="text-xs text-slate-400 pt-3 mt-3 border-t border-slate-800 flex justify-between">
+            <span x-text="t('loan_amount')"></span>
+            <strong class="text-emerald-400 font-mono" x-text="(form.value_of_house_tl - form.initial_noncredit_amount_tl).toLocaleString() + ' TL'"></strong>
+          </div>
         </div>
-        <p class="text-xs text-amber-400 mt-2" x-show="loadingAsset" x-text="t('fetching_asset')"></p>
-      </section>
 
-      <button @click="runProjection()"
-              :disabled="loading"
-              class="w-full py-3 rounded-lg font-semibold text-base
-                     bg-emerald-600 hover:bg-emerald-500
-                     disabled:bg-slate-700 disabled:cursor-not-allowed
-                     transition shadow-lg shadow-emerald-900/40">
-        <span x-show="!loading" x-text="t('generate')"></span>
-        <span x-show="loading" x-text="t('calculating')"></span>
-      </button>
+        <!-- Macro -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <h2 class="section-title" x-text="t('macro')"></h2>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="field">
+              <span class="field-label" x-text="t('start_dollar')"></span>
+              <input type="number" step="0.01" x-model.number="form.start_dollar_tl" class="input-field" />
+            </label>
+            <label class="field">
+              <span class="field-label" x-text="t('dollar_growth')"></span>
+              <input type="number" step="0.1" x-model.number="form.dollar_growth_rate" class="input-field" />
+            </label>
+            <label class="field">
+              <span class="field-label" x-text="t('turkey_inflation')"></span>
+              <input type="number" step="0.1" x-model.number="form.turkey_inflation" class="input-field" />
+            </label>
+            <label class="field">
+              <span class="field-label" x-text="t('usa_inflation')"></span>
+              <input type="number" step="0.1" x-model.number="form.usa_inflation" class="input-field" />
+            </label>
+          </div>
+        </div>
 
-      <p x-show="error" class="text-red-400 text-sm" x-text="error"></p>
-    </aside>
+        <!-- Rent & Salary -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800 md:col-span-2 xl:col-span-1">
+          <h2 class="section-title" x-text="t('rent_section') + ' / ' + t('salary')"></h2>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="field col-span-2">
+              <span class="field-label" x-text="t('monthly_rent')"></span>
+              <input type="number" x-model.number="form.initial_monthly_rent_tl" class="input-field" />
+            </label>
+            <label class="field">
+              <span class="field-label" x-text="t('salary_currency')"></span>
+              <select x-model="form.salary_currency" class="input-field">
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="TL">TL</option>
+              </select>
+            </label>
+            <label class="field" x-show="form.salary_currency==='EUR'">
+              <span class="field-label" x-text="t('euro_dollar')"></span>
+              <input type="number" step="0.01" x-model.number="form.euro_dollar_rate" class="input-field" />
+            </label>
+            <label class="field" :class="form.salary_currency==='EUR' ? 'col-span-2' : ''">
+              <span class="field-label" x-text="t('salary_annual')"></span>
+              <input type="number" x-model.number="form.start_salary_base" class="input-field" />
+            </label>
+            <label class="field col-span-2">
+              <span class="field-label" x-text="t('salary_growth')"></span>
+              <input type="number" step="0.1" x-model.number="form.salary_growth" class="input-field" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: selection groups -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+        <!-- Toggles -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <h2 class="section-title" x-text="t('options')"></h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <label class="toggle">
+              <input type="checkbox" x-model="form.use_months" class="accent-emerald-500" />
+              <span x-text="t('use_months')"></span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" x-model="form.deflate_dollar_by_us_inflation" class="accent-emerald-500" />
+              <span x-text="t('deflate_us')"></span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" x-model="form.generate_random" class="accent-emerald-500" />
+              <span x-text="t('random')"></span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" x-model="form.project_initial_money_with_asset" class="accent-emerald-500" />
+              <span x-text="t('project_initial')"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Plot selection -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <h2 class="section-title" x-text="t('plots')"></h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
+            <template x-for="key in plotOrder" :key="key">
+              <label class="toggle">
+                <input type="checkbox" :value="key" x-model="selectedPlots" class="accent-emerald-500" />
+                <span x-text="t(key)"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+
+        <!-- Assets -->
+        <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
+          <h2 class="section-title" x-text="t('assets')"></h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <template x-for="sym in supportedAssets" :key="sym">
+              <label class="toggle">
+                <input type="checkbox" :value="sym" x-model="selectedAssets" class="accent-emerald-500" />
+                <span x-text="sym" class="font-medium"></span>
+                <span x-show="assetInfo[sym]" class="text-xs text-slate-500 ml-auto"
+                      x-text="assetInfo[sym] ? assetInfo[sym].average_growth.toFixed(1) + '%' : ''"></span>
+              </label>
+            </template>
+          </div>
+          <p class="text-xs text-amber-400 mt-2" x-show="loadingAsset" x-text="t('fetching_asset')"></p>
+        </div>
+      </div>
+
+      <!-- Generate button -->
+      <div class="flex items-center gap-4">
+        <button @click="runProjection()"
+                :disabled="loading"
+                class="flex-1 md:flex-none md:px-12 py-3 rounded-lg font-semibold text-base
+                       bg-emerald-600 hover:bg-emerald-500
+                       disabled:bg-slate-700 disabled:cursor-not-allowed
+                       transition shadow-lg shadow-emerald-900/40">
+          <span x-show="!loading" x-text="t('generate')"></span>
+          <span x-show="loading" x-text="t('calculating')"></span>
+        </button>
+        <p x-show="error" class="text-red-400 text-sm" x-text="error"></p>
+      </div>
+    </section>
 
     <!-- Main: chart + summary -->
-    <main class="lg:col-span-8 xl:col-span-9 space-y-4">
+    <main class="space-y-4">
 
       <!-- Summary -->
       <div x-show="hasResult" class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -208,7 +218,7 @@
 
       <!-- Chart -->
       <div class="bg-slate-900 rounded-lg p-4 border border-slate-800">
-        <div class="relative" style="height: 600px;">
+        <div class="relative" style="height: 70vh; min-height: 500px;">
           <canvas id="mainChart"></canvas>
         </div>
         <div x-show="!hasResult" class="text-center text-slate-500 text-sm mt-4" x-text="t('hint')"></div>

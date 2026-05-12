@@ -65,15 +65,8 @@ const VIEW_DEFS = {
   salary: {
     titleKey: "view_salary", subKey: "view_salary_sub", methodKey: "view_salary_method",
     series: [
-      { key: "payment_salary_ratio", labelKey: "view_salary", formulaKey: "sf_salary_ratio", color: 0, offset: 1, isRatio: true },
-    ],
-    unit: "%",
-    needsSalary: true,
-  },
-  salary_net: {
-    titleKey: "view_salary_net", subKey: "view_salary_net_sub", methodKey: "view_salary_net_method",
-    series: [
-      { key: "payment_minus_rent_over_salary", labelKey: "view_salary_net", formulaKey: "sf_salary_net_ratio", color: 2, offset: 1, isRatio: true },
+      { key: "payment_salary_ratio", labelKey: "sl_salary_gross", formulaKey: "sf_salary_ratio", color: 0, offset: 1, isRatio: true },
+      { key: "payment_minus_rent_over_salary", labelKey: "sl_salary_net", formulaKey: "sf_salary_net_ratio", color: 2, offset: 1, isRatio: true },
     ],
     unit: "%",
     needsSalary: true,
@@ -489,7 +482,6 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
     { id: "rent_vs", available: true },
     { id: "payment", available: true },
     { id: "salary", available: hasSalary },
-    { id: "salary_net", available: hasSalary },
     { id: "macro", available: true },
   ].filter((v) => v.available);
 

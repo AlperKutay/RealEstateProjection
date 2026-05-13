@@ -223,7 +223,7 @@ function App() {
     return s ? s.name : null;
   }, [activeScnId, scenarios]);
 
-  const handleGenerateSingleReport = async () => {
+  const handleGenerateSingleReport = async (chartKeys) => {
     if (!result || !window.generateSingleReport) return;
     setReportBusy(true);
     try {
@@ -234,6 +234,7 @@ function App() {
         t,
         scenarioName: activeScenarioName,
         allAssetData,
+        chartKeys,
       });
     } finally {
       // small grace so user sees the spinner briefly even if pop-up opens fast
@@ -405,9 +406,18 @@ function App() {
               </svg>
               {t("scn_save_current")}
             </button>
-            {window.ReportButton ? (
+            {window.ReportLauncher ? (
+              <window.ReportLauncher
+                kind="single"
+                onGenerate={handleGenerateSingleReport}
+                busy={reportBusy}
+                variant={scenarios.length >= 1 ? "ghost" : "primary"}
+                t={t}
+                lang={lang}
+              />
+            ) : window.ReportButton ? (
               <window.ReportButton
-                onClick={handleGenerateSingleReport}
+                onClick={() => handleGenerateSingleReport()}
                 label={reportBusy ? t("rpt_busy") : t("rpt_button")}
                 busy={reportBusy}
                 variant={scenarios.length >= 1 ? "ghost" : "primary"}

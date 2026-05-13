@@ -996,13 +996,25 @@ function renderToolbar(t) {
 }
 
 // ===== Single-scenario report HTML =====
-async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allAssetData }) {
+// chart-key sets — drive both the picker UI and the report builder.
+const SINGLE_CHART_KEYS = ["net_payment", "decision", "rent_vs", "payment", "macro"];
+const COMPARE_CHART_KEYS = ["decision", "total_paid", "rent_vs", "fx"];
+
+async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allAssetData, chartKeys }) {
+  // If the caller didn't pass a selection, render every chart (back-compat).
+  const selected = Array.isArray(chartKeys) && chartKeys.length
+    ? new Set(chartKeys)
+    : new Set(SINGLE_CHART_KEYS);
+
+  // Build images in parallel — but skip the ones the user excluded so we
+  // don't waste off-screen canvas time on a chart that won't be embedded.
+  const buildIf = (key, fn) => selected.has(key) ? fn(result, t) : Promise.resolve(null);
   const [decisionImg, rentVsImg, netPaymentImg, paymentImg, macroImg] = await Promise.all([
-    buildDecisionChart(result, t),
-    buildRentVsChart(result, t),
-    buildNetPaymentChart(result, t),
-    buildPaymentChart(result, t),
-    buildMacroChart(result, t),
+    buildIf("decision", buildDecisionChart),
+    buildIf("rent_vs", buildRentVsChart),
+    buildIf("net_payment", buildNetPaymentChart),
+    buildIf("payment", buildPaymentChart),
+    buildIf("macro", buildMacroChart),
   ]);
 
   // insights
@@ -1101,68 +1113,78 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
   `;
 
   // page 2: decision + rent_vs charts
-  const page2 = `
-    <div class="page">
-      ${renderHeader(t, lang, "single", scenarioName)}
-      <h2 class="section-title">${escapeHtml(t("rpt_charts"))}<small>${escapeHtml(t("rpt_charts_sub"))}</small></h2>
-
+  // Each chart-card is rendered only if the user picked it. Pages whose
+  // entire chart set is excluded get skipped (handled below when stitching
+  // pages together).
+  const cardDecision = selected.has("decision") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_decision"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_decision_sub"))}</p>
         ${decisionImg ? `<img src="${decisionImg}" alt="decision chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_decision_method"))}</p>
-      </div>
+      </div>` : "";
 
+  const cardRentVs = selected.has("rent_vs") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_rent_vs"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_rent_vs_sub"))}</p>
         ${rentVsImg ? `<img src="${rentVsImg}" alt="rent vs chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_rent_vs_method"))}</p>
-      </div>
-      <div class="page-number">3</div>
-    </div>
-  `;
+      </div>` : "";
 
-  // page 3: net-payment + monthly-payment charts (the "what does this cost me?" pair)
-  const page3 = `
-    <div class="page">
-      ${renderHeader(t, lang, "single", scenarioName)}
-
+  const cardNetPayment = selected.has("net_payment") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("i_net_payment"))}</h3>
         <p class="chart-sub">${escapeHtml(tt(t, "sf_net_payment", lang === "tr"
           ? "Toplam ödediğiniz (peşinat + taksit + giderler) eksi kiracı kalsaydınız ödeyeceğiniz kira."
           : "Total you paid minus the rent you would have paid as a renter."))}</p>
         ${netPaymentImg ? `<img src="${netPaymentImg}" alt="net payment chart" />` : ""}
-      </div>
+      </div>` : "";
 
+  const cardPayment = selected.has("payment") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_payment"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_payment_sub"))}</p>
         ${paymentImg ? `<img src="${paymentImg}" alt="payment chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_payment_method"))}</p>
-      </div>
+      </div>` : "";
 
-      <div class="page-number">4</div>
-    </div>
-  `;
-
-  // page 4: macro chart + footer
-  const page4 = `
-    <div class="page">
-      ${renderHeader(t, lang, "single", scenarioName)}
-
+  const cardMacro = selected.has("macro") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_macro"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_macro_sub"))}</p>
         ${macroImg ? `<img src="${macroImg}" alt="macro chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_macro_method"))}</p>
-      </div>
+      </div>` : "";
 
-      <div class="footer">${escapeHtml(t("footer"))}</div>
-      <div class="page-number">5</div>
+  const page2 = (cardDecision || cardRentVs) ? `
+    <div class="page">
+      ${renderHeader(t, lang, "single", scenarioName)}
+      <h2 class="section-title">${escapeHtml(t("rpt_charts"))}<small>${escapeHtml(t("rpt_charts_sub"))}</small></h2>
+      ${cardDecision}
+      ${cardRentVs}
     </div>
-  `;
+  ` : "";
+
+  // page 3: net-payment + monthly-payment charts (the "what does this cost me?" pair)
+  const page3 = (cardNetPayment || cardPayment) ? `
+    <div class="page">
+      ${renderHeader(t, lang, "single", scenarioName)}
+      ${cardNetPayment}
+      ${cardPayment}
+    </div>
+  ` : "";
+
+  // page 4: macro chart + footer (footer always shows if any chart appears
+  // — otherwise the report ends after the assumptions/rates pages)
+  const anyChart = cardDecision || cardRentVs || cardNetPayment || cardPayment || cardMacro;
+  const page4 = (cardMacro || anyChart) ? `
+    <div class="page">
+      ${renderHeader(t, lang, "single", scenarioName)}
+      ${cardMacro}
+      <div class="footer">${escapeHtml(t("footer"))}</div>
+    </div>
+  ` : "";
 
   // page 1.5: per-year FX + inflation table
   const pageRates = `
@@ -1238,7 +1260,7 @@ function fmtMetric_R(v, kind) {
   return String(v);
 }
 
-async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
+async function buildCompareReportHTML({ scenarios, allAssetData, t, lang, chartKeys }) {
   // computeScenarioResult in scenarios.jsx returns { result, originalYears };
   // the report only needs the bare projection result. We also extend all
   // scenarios to the longest horizon so they share an x-axis in the overlay
@@ -1249,11 +1271,16 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
     return out && typeof out === "object" && "result" in out ? out.result : out;
   });
 
+  const selected = Array.isArray(chartKeys) && chartKeys.length
+    ? new Set(chartKeys)
+    : new Set(COMPARE_CHART_KEYS);
+  const compareIf = (key, field, unit) =>
+    selected.has(key) ? buildCompareChart(scenarios, results, field, unit, t) : Promise.resolve(null);
   const [decisionImg, totalPaidImg, rentVsImg, fxImg] = await Promise.all([
-    buildCompareChart(scenarios, results, "value_of_house_usd_yearly", "USD", t),
-    buildCompareChart(scenarios, results, "total_credit_amount_usd_annual", "USD", t),
-    buildCompareChart(scenarios, results, "house_plus_rent_yearly", "USD", t),
-    buildCompareChart(scenarios, results, "dollar_rates_annual", "TL", t),
+    compareIf("decision", "value_of_house_usd_yearly", "USD"),
+    compareIf("total_paid", "total_credit_amount_usd_annual", "USD"),
+    compareIf("rent_vs", "house_plus_rent_yearly", "USD"),
+    compareIf("fx", "dollar_rates_annual", "TL"),
   ]);
 
   // determine winner per metric
@@ -1423,46 +1450,52 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
     </div>
   `;
 
-  const page2 = `
-    <div class="page">
-      ${renderHeader(t, lang, "compare")}
-      <h2 class="section-title">${escapeHtml(t("rpt_compare_overlays"))}<small>${escapeHtml(t("rpt_compare_overlays_sub"))}</small></h2>
-
+  const cmpCardDecision = selected.has("decision") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("f_value"))} — ${escapeHtml(t("view_decision"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_decision_sub"))}</p>
         ${decisionImg ? `<img src="${decisionImg}" />` : ""}
-      </div>
+      </div>` : "";
 
+  const cmpCardTotalPaid = selected.has("total_paid") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("i_total_paid"))}</h3>
         <p class="chart-sub">${escapeHtml(t("cmp_total_paid_sub"))}</p>
         ${totalPaidImg ? `<img src="${totalPaidImg}" />` : ""}
-      </div>
-      <div class="page-number">3</div>
-    </div>
-  `;
+      </div>` : "";
 
-  const page3 = `
-    <div class="page">
-      ${renderHeader(t, lang, "compare")}
-
+  const cmpCardRentVs = selected.has("rent_vs") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_rent_vs"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_rent_vs_sub"))}</p>
         ${rentVsImg ? `<img src="${rentVsImg}" />` : ""}
-      </div>
+      </div>` : "";
 
+  const cmpCardFx = selected.has("fx") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_macro"))}</h3>
         <p class="chart-sub">${escapeHtml(t("view_macro_sub"))}</p>
         ${fxImg ? `<img src="${fxImg}" />` : ""}
-      </div>
+      </div>` : "";
 
-      <div class="footer">${escapeHtml(t("footer"))}</div>
-      <div class="page-number">4</div>
+  const page2 = (cmpCardDecision || cmpCardTotalPaid) ? `
+    <div class="page">
+      ${renderHeader(t, lang, "compare")}
+      <h2 class="section-title">${escapeHtml(t("rpt_compare_overlays"))}<small>${escapeHtml(t("rpt_compare_overlays_sub"))}</small></h2>
+      ${cmpCardDecision}
+      ${cmpCardTotalPaid}
     </div>
-  `;
+  ` : "";
+
+  const anyCmpChart = cmpCardDecision || cmpCardTotalPaid || cmpCardRentVs || cmpCardFx;
+  const page3 = (cmpCardRentVs || cmpCardFx || anyCmpChart) ? `
+    <div class="page">
+      ${renderHeader(t, lang, "compare")}
+      ${cmpCardRentVs}
+      ${cmpCardFx}
+      <div class="footer">${escapeHtml(t("footer"))}</div>
+    </div>
+  ` : "";
 
   return `<!doctype html>
 <html lang="${lang}">
@@ -1578,6 +1611,116 @@ function ReportButton({ onClick, label, busy, variant }) {
   );
 }
 
+// ===== Launcher with chart picker =====
+// Wraps ReportButton with a small popover whose checkboxes drive which
+// charts the generator embeds. Selection persists in localStorage so the
+// next report respects the last choice.
+const { useState: useState_RP, useRef: useRef_RP, useEffect: useEffect_RP } = React;
+
+const REPORT_CHART_DEFS = {
+  single: [
+    { key: "net_payment", labelKey: "i_net_payment" },
+    { key: "decision", labelKey: "view_decision" },
+    { key: "rent_vs", labelKey: "view_rent_vs" },
+    { key: "payment", labelKey: "view_payment" },
+    { key: "macro", labelKey: "view_macro" },
+  ],
+  compare: [
+    { key: "decision", labelKey: "view_decision" },
+    { key: "total_paid", labelKey: "i_total_paid" },
+    { key: "rent_vs", labelKey: "view_rent_vs" },
+    { key: "fx", labelKey: "view_macro" },
+  ],
+};
+
+function ReportLauncher({ onGenerate, busy, variant, kind, t, lang }) {
+  const defs = REPORT_CHART_DEFS[kind] || REPORT_CHART_DEFS.single;
+  const storeKey = `rep:report_charts:${kind}`;
+  const [selected, setSelected] = useState_RP(() => {
+    try {
+      const raw = localStorage.getItem(storeKey);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr) && arr.length) return arr;
+      }
+    } catch (_) {}
+    return defs.map((d) => d.key);
+  });
+  const [open, setOpen] = useState_RP(false);
+  const wrapRef = useRef_RP(null);
+
+  useEffect_RP(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const persist = (next) => {
+    setSelected(next);
+    try { localStorage.setItem(storeKey, JSON.stringify(next)); } catch (_) {}
+  };
+  const toggle = (key) => {
+    const next = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key];
+    persist(next);
+  };
+  const selectAll = () => persist(defs.map((d) => d.key));
+  const selectNone = () => persist([]);
+  const handleGo = () => {
+    setOpen(false);
+    onGenerate(selected.length ? selected : defs.map((d) => d.key));
+  };
+  const label = busy ? tt(t, "rpt_busy", "Hazırlanıyor") : tt(t, "rpt_button", "Rapor");
+  const optsLabel = tt(t, "rpt_pick_charts", lang === "tr" ? "Grafik seç" : "Pick charts");
+  const allLabel = tt(t, "rpt_pick_all", lang === "tr" ? "Hepsi" : "All");
+  const noneLabel = tt(t, "rpt_pick_none", lang === "tr" ? "Hiçbiri" : "None");
+  const goLabel = tt(t, "rpt_generate", lang === "tr" ? "Oluştur" : "Generate");
+
+  return (
+    <div className="report-launcher" ref={wrapRef} style={{ position: "relative", display: "inline-flex", gap: 0 }}>
+      <ReportButton onClick={handleGo} label={label} busy={busy} variant={variant} />
+      <button
+        type="button"
+        className={"btn " + (variant === "primary" ? "btn-primary" : "btn-ghost")}
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy}
+        title={optsLabel}
+        style={{ padding: "0 8px", marginLeft: 1 }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+      {open ? (
+        <div className="report-popover" role="dialog" aria-label={optsLabel}>
+          <div className="report-popover-head">{optsLabel}</div>
+          <div className="report-popover-list">
+            {defs.map((d) => (
+              <label key={d.key} className="report-popover-row">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(d.key)}
+                  onChange={() => toggle(d.key)}
+                />
+                <span>{t(d.labelKey)}</span>
+              </label>
+            ))}
+          </div>
+          <div className="report-popover-foot">
+            <button type="button" className="link" onClick={selectAll}>{allLabel}</button>
+            <span className="sep">·</span>
+            <button type="button" className="link" onClick={selectNone}>{noneLabel}</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleGo} disabled={busy || !selected.length}>
+              {goLabel}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 window.generateSingleReport = generateSingleReport;
 window.generateCompareReport = generateCompareReport;
 window.ReportButton = ReportButton;
+window.ReportLauncher = ReportLauncher;

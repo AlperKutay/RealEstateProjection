@@ -521,7 +521,24 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
             </svg>
             {saving ? t("cmp_save_saving") : t("cmp_save")}
           </button>
-          {window.ReportButton ? (
+          {window.ReportLauncher ? (
+            <window.ReportLauncher
+              kind="compare"
+              onGenerate={async (chartKeys) => {
+                if (!window.generateCompareReport) return;
+                setRptBusy(true);
+                try {
+                  await window.generateCompareReport({ scenarios: activeScns, allAssetData, t, lang, chartKeys });
+                } finally {
+                  setTimeout(() => setRptBusy(false), 600);
+                }
+              }}
+              busy={rptBusy}
+              variant="primary"
+              t={t}
+              lang={lang}
+            />
+          ) : window.ReportButton ? (
             <window.ReportButton
               onClick={async () => {
                 if (!window.generateCompareReport) return;

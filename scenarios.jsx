@@ -98,17 +98,19 @@ const MACRO_FIELDS = [
   "deflate_dollar_by_us_inflation",
   "generate_random",
 ];
-// Pad-only: keep base's full data; if it's shorter than the target's
-// horizon, extend by repeating the last value. Never truncate — when
-// base is longer than target, target gets extended to base's horizon
-// later by computeResult so all of base's data is needed.
+// Pad-only: keep base's full data. When base is shorter than the target's
+// horizon, extend by repeating the array's MEAN — not its last value — so
+// a one-off final-year spike doesn't lock in for every extra year and the
+// average growth rate the user drew stays intact.
 function padPerYearArray(arr, minLen, fallback) {
   if (!Array.isArray(arr)) return arr;
   const need = Math.max(minLen, arr.length);
   if (arr.length >= need) return arr;
-  const last = arr.length ? arr[arr.length - 1] : (fallback ?? 0);
+  const padValue = arr.length
+    ? arr.reduce((s, x) => s + x, 0) / arr.length
+    : (fallback ?? 0);
   const out = arr.slice();
-  while (out.length < need) out.push(last);
+  while (out.length < need) out.push(padValue);
   return out;
 }
 
@@ -140,15 +142,19 @@ function applyMacroOverride(scn, base) {
   return { ...scn, form: { ...scn.form, ...overrides } };
 }
 
-// Extend a per-year override array to a longer horizon by repeating the
-// array's last value (so the trend the user drew keeps going). Falls back
-// to the supplied scalar when the array is empty.
+// Extend a per-year override array to a longer horizon. Pads with the
+// array's arithmetic mean instead of its last value — so a final-year
+// spike doesn't get re-applied for every extra year and the average rate
+// the user drew stays roughly intact. Falls back to the supplied scalar
+// when the array is empty.
 function extendPerYearArray(arr, newLen, fallback) {
   if (!Array.isArray(arr)) return arr;
   if (arr.length >= newLen) return arr;
-  const last = arr.length ? arr[arr.length - 1] : (fallback ?? 0);
+  const padValue = arr.length
+    ? arr.reduce((s, x) => s + x, 0) / arr.length
+    : (fallback ?? 0);
   const padded = arr.slice();
-  while (padded.length < newLen) padded.push(last);
+  while (padded.length < newLen) padded.push(padValue);
   return padded;
 }
 

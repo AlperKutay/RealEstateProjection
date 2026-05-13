@@ -101,16 +101,26 @@ const MACRO_FIELDS = [
 // Pad-only: keep base's full data. When base is shorter than the target's
 // horizon, extend by repeating the array's MEAN — not its last value — so
 // a one-off final-year spike doesn't lock in for every extra year and the
-// average growth rate the user drew stays intact.
-function padPerYearArray(arr, minLen, fallback) {
+// average growth rate the user drew stays intact. When `randomize` is true,
+// pad values jitter ±30% around the mean (matching the engine's random
+// convention) so the extended years feel like a real random walk instead
+// of a flat plateau.
+function padPerYearArray(arr, minLen, fallback, randomize = false) {
   if (!Array.isArray(arr)) return arr;
   const need = Math.max(minLen, arr.length);
   if (arr.length >= need) return arr;
-  const padValue = arr.length
+  const meanVal = arr.length
     ? arr.reduce((s, x) => s + x, 0) / arr.length
     : (fallback ?? 0);
   const out = arr.slice();
-  while (out.length < need) out.push(padValue);
+  while (out.length < need) {
+    if (randomize) {
+      const jitter = (Math.random() - 0.5) * 2 * Math.abs(meanVal) * 0.3;
+      out.push(meanVal + jitter);
+    } else {
+      out.push(meanVal);
+    }
+  }
   return out;
 }
 
@@ -127,16 +137,21 @@ function applyMacroOverride(scn, base) {
   // longer of target's years and base array's existing length; never cut
   // base's data short.
   const targetYears = scn.form.years || 0;
+  // When generate_random is on (the override copies base's value), randomize
+  // the padding so the extended years feel like a real random walk.
+  const wantRandom = overrides.generate_random ?? scn.form.generate_random;
   if (Array.isArray(overrides.dollar_growth_per_year)) {
     overrides.dollar_growth_per_year = padPerYearArray(
       overrides.dollar_growth_per_year, targetYears,
       overrides.dollar_growth_rate ?? scn.form.dollar_growth_rate,
+      wantRandom,
     );
   }
   if (Array.isArray(overrides.turkey_inflation_per_year)) {
     overrides.turkey_inflation_per_year = padPerYearArray(
       overrides.turkey_inflation_per_year, targetYears,
       overrides.turkey_inflation ?? scn.form.turkey_inflation,
+      wantRandom,
     );
   }
   return { ...scn, form: { ...scn.form, ...overrides } };
@@ -146,15 +161,23 @@ function applyMacroOverride(scn, base) {
 // array's arithmetic mean instead of its last value — so a final-year
 // spike doesn't get re-applied for every extra year and the average rate
 // the user drew stays roughly intact. Falls back to the supplied scalar
-// when the array is empty.
-function extendPerYearArray(arr, newLen, fallback) {
+// when the array is empty. When `randomize` is true (random toggle on),
+// the padded years jitter ±30% around the mean instead of being flat.
+function extendPerYearArray(arr, newLen, fallback, randomize = false) {
   if (!Array.isArray(arr)) return arr;
   if (arr.length >= newLen) return arr;
-  const padValue = arr.length
+  const meanVal = arr.length
     ? arr.reduce((s, x) => s + x, 0) / arr.length
     : (fallback ?? 0);
   const padded = arr.slice();
-  while (padded.length < newLen) padded.push(padValue);
+  while (padded.length < newLen) {
+    if (randomize) {
+      const jitter = (Math.random() - 0.5) * 2 * Math.abs(meanVal) * 0.3;
+      padded.push(meanVal + jitter);
+    } else {
+      padded.push(meanVal);
+    }
+  }
   return padded;
 }
 
@@ -174,15 +197,18 @@ function computeResult(scn, allAssetData, extendToYears = null, seed = null) {
     // Per-year override arrays were sized to the scenario's own horizon. The
     // engine validates length === years and silently falls back to flat mode
     // when they don't match. Pad to the new horizon so the user's custom
-    // FX / inflation distribution survives the extension.
+    // FX / inflation distribution survives the extension. When the random
+    // toggle is on, the padded years jitter around the mean so the extended
+    // span looks like a real random walk instead of a flat plateau.
+    const wantRandom = !!input.generate_random;
     if (input.dollar_growth_mode === "yearly") {
       input.dollar_growth_per_year = extendPerYearArray(
-        input.dollar_growth_per_year, extendToYears, input.dollar_growth_rate,
+        input.dollar_growth_per_year, extendToYears, input.dollar_growth_rate, wantRandom,
       );
     }
     if (input.turkey_inflation_mode === "yearly") {
       input.turkey_inflation_per_year = extendPerYearArray(
-        input.turkey_inflation_per_year, extendToYears, input.turkey_inflation,
+        input.turkey_inflation_per_year, extendToYears, input.turkey_inflation, wantRandom,
       );
     }
   }

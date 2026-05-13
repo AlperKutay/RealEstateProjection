@@ -410,6 +410,71 @@ test("yearly mode with wrong-length array falls back to flat", () => {
   assert.ok(Math.abs(r.dollar_rates_annual[10] - expectedFlat) / expectedFlat < 1e-12);
 });
 
+// --- Phase 3.3: variable per-year loan rate -----------------------
+
+test("flat interest mode is back-compat: missing keys behave like the scalar", () => {
+  const a = runProjection(baseInput());
+  const b = runProjection(baseInput({ interest_rate_mode: "flat" }));
+  assert.equal(a.monthly_tl_payment, b.monthly_tl_payment);
+  assert.equal(a.total_paid_tl, b.total_paid_tl);
+});
+
+test("yearly interest: per-year array drives the payment schedule", () => {
+  // Step the rate up every year — payment should rise after y1.
+  const rates = Array.from({ length: 10 }, (_, y) => 2.74 + 0.1 * y);
+  const r = runProjection(baseInput({
+    interest_rate_mode: "yearly",
+    interest_rate_per_year: rates,
+  }));
+  // First-year payment should match a flat-mode amortization at rates[0].
+  const flat = runProjection(baseInput({ interest_rate: rates[0] }));
+  assert.ok(Math.abs(r.monthly_tl_payment - flat.monthly_tl_payment) < 1e-6,
+    `first-year payment ${r.monthly_tl_payment} != flat-rate ${flat.monthly_tl_payment}`);
+  // Final balance after the term still zero (amortization closes correctly).
+  assert.ok(Math.abs(r.remaining_loan_usd_monthly[120]) < 1e-6);
+  // total_paid_tl must equal the sum of every month's payment (not the
+  // first-year payment × n).
+  const flatTotal = flat.monthly_tl_payment * 120;
+  assert.ok(r.total_paid_tl > flatTotal,
+    `rising rates should produce a higher total: ${r.total_paid_tl} vs flat ${flatTotal}`);
+});
+
+test("yearly interest: a flat schedule (all same rate) matches scalar mode", () => {
+  const rate = 2.5;
+  const rates = Array(10).fill(rate);
+  const a = runProjection(baseInput({ interest_rate: rate }));
+  const b = runProjection(baseInput({
+    interest_rate_mode: "yearly",
+    interest_rate_per_year: rates,
+  }));
+  assert.ok(Math.abs(a.total_paid_tl - b.total_paid_tl) < 1e-6,
+    `flat schedule should equal scalar: ${a.total_paid_tl} vs ${b.total_paid_tl}`);
+  assert.ok(Math.abs(a.monthly_tl_payment - b.monthly_tl_payment) < 1e-6);
+});
+
+test("yearly interest: wrong-length array falls back to flat rate", () => {
+  const a = runProjection(baseInput());
+  const b = runProjection(baseInput({
+    interest_rate_mode: "yearly",
+    interest_rate_per_year: [2.74, 3.0, 3.5], // length 3 ≠ loan term (10)
+  }));
+  assert.equal(a.monthly_tl_payment, b.monthly_tl_payment);
+});
+
+test("variable rate + loan_term_years: amortization respects shorter term", () => {
+  const rates = [3.0, 3.0, 3.0, 3.0, 3.0]; // 5y loan
+  const r = runProjection(baseInput({
+    years: 10,
+    loan_term_years: 5,
+    interest_rate_mode: "yearly",
+    interest_rate_per_year: rates,
+  }));
+  // Payments only run for the first 5 years (60 months).
+  for (let m = 0; m < 60; m++) assert.ok(r.monthly_payment_usd[m] > 0);
+  for (let m = 60; m < 120; m++) assert.equal(r.monthly_payment_usd[m], 0);
+  assert.ok(Math.abs(r.remaining_loan_usd_monthly[60]) < 1e-6);
+});
+
 test("early-payoff scenario: full-horizon series stay populated past loan-end", () => {
   // The model must not truncate house/rent/carry series when the loan ends.
   // Series lengths and finite values at the final index confirm a clean run.

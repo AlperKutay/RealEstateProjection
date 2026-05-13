@@ -17,6 +17,21 @@ const CHART_COLORS = [
   "oklch(0.70 0.10 200)",
 ];
 
+// Append an alpha channel to one of our chart colors. OKLCH needs the alpha
+// inside the parens ("oklch(L C H / 0.15)"); a naive "color + alphaHex" tail
+// only works for #rrggbb and silently breaks Chart.js when it doesn't.
+function withAlpha(color, alpha) {
+  if (typeof color !== "string") return color;
+  const trimmed = color.trim();
+  if (trimmed.startsWith("oklch(") && trimmed.endsWith(")")) {
+    return trimmed.slice(0, -1) + " / " + alpha + ")";
+  }
+  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
+    return trimmed + Math.round(alpha * 255).toString(16).padStart(2, "0");
+  }
+  return trimmed;
+}
+
 // Each view describes: which series to plot, axis style, optional secondary axis.
 function buildChartViews(t) {
   return {
@@ -365,12 +380,13 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
         const p10Data = projectArr(env.p10);
         const p90Data = projectArr(env.p90);
         const p50Data = projectArr(env.p50);
+        const bandFill = withAlpha(color, 0.12);
         // Push lower line first so the upper line can fill back to it.
         datasets.push({
           label: t(s.labelKey) + " — P10",
           data: p10Data,
-          borderColor: color,
-          backgroundColor: color,
+          borderColor: "transparent",
+          backgroundColor: "transparent",
           borderWidth: 0,
           pointRadius: 0,
           pointHoverRadius: 0,
@@ -381,8 +397,8 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
         datasets.push({
           label: t(s.labelKey) + " — P90",
           data: p90Data,
-          borderColor: color,
-          backgroundColor: color + "22",
+          borderColor: "transparent",
+          backgroundColor: bandFill,
           borderWidth: 0,
           pointRadius: 0,
           pointHoverRadius: 0,

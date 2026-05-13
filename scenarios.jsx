@@ -531,17 +531,34 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
     () => activeScns.reduce((m, s) => Math.max(m, s.form.years), 0),
     [activeScns]
   );
-  // Same seed for every scenario in the compare run so their random FX +
-  // inflation paths share a shape — visible differences then come from the
-  // scenarios' own parameters, not from independent dice rolls. The user
-  // can click "Yeniden çek" to roll a fresh seed and see a different
-  // realization (all scenarios still stay in sync, just on a new shape).
-  const [compareSeed, setCompareSeed] = useState_S(42);
+  // Random mode picker for the compare run. Three options:
+  //   "stable"      — every scenario shares a fixed seed (42). Stable
+  //                   across page refreshes; useful for didactic compare
+  //                   screenshots.
+  //   "synced"      — every scenario shares a single fresh seed picked on
+  //                   mount; re-roll button generates a new shared seed.
+  //   "independent" — no shared seed; each scenario draws its own random
+  //                   path (each Hesapla shows fresh shapes for each).
+  const [randomMode, setRandomMode] = useState_S("stable");
+  const [syncedSeed, setSyncedSeed] = useState_S(42);
   const anyRandom = activeScns.some((s) => s.form && s.form.generate_random);
-  const rerollSeed = () => setCompareSeed(Math.floor(Math.random() * 1e9));
+  const rerollSeed = () => {
+    setRandomMode("synced");
+    setSyncedSeed(Math.floor(Math.random() * 1e9));
+  };
+  const setMode = (m) => {
+    setRandomMode(m);
+    if (m === "stable") setSyncedSeed(42);
+    if (m === "synced") setSyncedSeed(Math.floor(Math.random() * 1e9));
+  };
+  const seedForScenario = (i) => {
+    if (randomMode === "independent") return null;     // engine uses native Math.random
+    if (randomMode === "stable") return 42;
+    return syncedSeed;
+  };
   const computed = useMemo_S(
-    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears, compareSeed)),
-    [activeScns, allAssetData, maxYears, compareSeed]
+    () => activeScns.map((s, i) => computeResult(s, allAssetData, maxYears, seedForScenario(i))),
+    [activeScns, allAssetData, maxYears, randomMode, syncedSeed]
   );
   const results = useMemo_S(() => computed.map((c) => c.result), [computed]);
   const originalYearsByIdx = useMemo_S(
@@ -590,17 +607,41 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
         </div>
         <div className="cmp-head-actions">
           {anyRandom ? (
-            <button className="btn btn-ghost" onClick={rerollSeed} title={t("cmp_reroll_title")}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="3"/>
-                <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/>
-                <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/>
-                <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
-                <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>
-                <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/>
-              </svg>
-              {t("cmp_reroll")}
-            </button>
+            <>
+              <div className="cmp-random-mode" role="radiogroup" aria-label={t("cmp_random_mode")}>
+                <button
+                  className={randomMode === "stable" ? "active" : ""}
+                  onClick={() => setMode("stable")}
+                  title={t("cmp_mode_stable_title")}
+                >{t("cmp_mode_stable")}</button>
+                <button
+                  className={randomMode === "synced" ? "active" : ""}
+                  onClick={() => setMode("synced")}
+                  title={t("cmp_mode_synced_title")}
+                >{t("cmp_mode_synced")}</button>
+                <button
+                  className={randomMode === "independent" ? "active" : ""}
+                  onClick={() => setMode("independent")}
+                  title={t("cmp_mode_independent_title")}
+                >{t("cmp_mode_independent")}</button>
+              </div>
+              <button
+                className="btn btn-ghost"
+                onClick={rerollSeed}
+                disabled={randomMode === "independent"}
+                title={t("cmp_reroll_title")}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3"/>
+                  <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/>
+                  <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/>
+                  <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+                  <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>
+                  <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/>
+                </svg>
+                {t("cmp_reroll")}
+              </button>
+            </>
           ) : null}
           <button className="btn btn-ghost" onClick={saveCompare} disabled={saving} title={t("cmp_save_title")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

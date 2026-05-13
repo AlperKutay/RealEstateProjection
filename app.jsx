@@ -20,12 +20,50 @@ const ACCENT_PRESETS = {
   "#6e5fbd": { name: "Indigo",     hi: "#8d7fd1", lo: "#ece9f6", loDark: "#2a2540" },
 };
 
+// ----- Shareable URL state -----
+// Pack the bits of state that describe a scenario into the URL hash so the
+// user can copy the address and someone else opening it sees the same form.
+// Hash prefix is versioned ("s1=") — if the schema ever changes we can branch
+// on the prefix without breaking links in circulation.
+function encodeState({ form, selectedAssets, lang }) {
+  try {
+    const payload = { form, selectedAssets, lang };
+    // encodeURIComponent first so non-Latin-1 chars survive btoa.
+    const enc = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return "s1=" + enc;
+  } catch (_) { return null; }
+}
+function decodeState(hash) {
+  if (!hash) return null;
+  const clean = hash.startsWith("#") ? hash.slice(1) : hash;
+  if (!clean.startsWith("s1=")) return null;
+  try {
+    const json = decodeURIComponent(escape(atob(clean.slice(3))));
+    const obj = JSON.parse(json);
+    if (!obj || typeof obj !== "object" || !obj.form) return null;
+    return obj;
+  } catch (_) { return null; }
+}
+
 function App() {
   // ----- core state
-  const [lang, setLang] = useState_A("tr");
-  const [presetKey, setPresetKey] = useState_A("balanced");
-  const [form, setForm] = useState_A({ ...PRESETS.balanced });
-  const [selectedAssets, setSelectedAssets] = useState_A([...PRESETS.balanced.assets]);
+  // Try to hydrate from the URL hash on first mount. If someone shared a link
+  // like ".../#s1=...", their form + selected assets + language drop straight
+  // into our initial state — no flash of default values.
+  const _hashInit = typeof window !== "undefined" ? decodeState(window.location.hash) : null;
+  const _initialForm = _hashInit && _hashInit.form
+    ? { ...PRESETS.balanced, ..._hashInit.form }
+    : { ...PRESETS.balanced };
+  const _initialAssets = _hashInit && Array.isArray(_hashInit.selectedAssets)
+    ? _hashInit.selectedAssets
+    : [...PRESETS.balanced.assets];
+  const _initialLang = _hashInit && (_hashInit.lang === "tr" || _hashInit.lang === "en")
+    ? _hashInit.lang
+    : "tr";
+  const [lang, setLang] = useState_A(_initialLang);
+  const [presetKey, setPresetKey] = useState_A(_hashInit ? "custom" : "balanced");
+  const [form, setForm] = useState_A(_initialForm);
+  const [selectedAssets, setSelectedAssets] = useState_A(_initialAssets);
   const [supportedAssets, setSupportedAssets] = useState_A(window.SUPPORTED_ASSETS || []);
   const [assetInfo, setAssetInfo] = useState_A({});
   const [allAssetData, setAllAssetData] = useState_A({});
@@ -125,6 +163,45 @@ function App() {
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2400);
+  };
+
+  // ----- URL hash sync -----
+  // Whenever form / selected assets / language change, write a fresh,
+  // base64-encoded snapshot into the URL hash (debounced so we don't thrash
+  // history while the user types). history.replaceState keeps the back
+  // button from filling up with every keystroke.
+  useEffect_A(() => {
+    const id = setTimeout(() => {
+      const enc = encodeState({ form, selectedAssets, lang });
+      if (!enc) return;
+      try {
+        const next = window.location.pathname + window.location.search + "#" + enc;
+        window.history.replaceState(null, "", next);
+      } catch (_) {}
+    }, 300);
+    return () => clearTimeout(id);
+  }, [form, selectedAssets, lang]);
+
+  const handleShareLink = async () => {
+    const enc = encodeState({ form, selectedAssets, lang });
+    const url = enc
+      ? `${window.location.origin}${window.location.pathname}#${enc}`
+      : window.location.href;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        showToast(t("share_copied"));
+      } else {
+        // Last-ditch fallback for browsers that don't expose the modern API.
+        const ta = document.createElement("textarea");
+        ta.value = url; document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); showToast(t("share_copied")); }
+        catch (_) { showToast(t("share_failed")); }
+        finally { ta.remove(); }
+      }
+    } catch (_) {
+      showToast(t("share_failed"));
+    }
   };
 
   // ---- scenario actions ----
@@ -264,6 +341,20 @@ function App() {
             <button className={lang === "tr" ? "active" : ""} onClick={() => setLang("tr")}>TR</button>
             <button className={lang === "en" ? "active" : ""} onClick={() => setLang("en")}>EN</button>
           </div>
+          <button
+            className="icon-btn"
+            title={t("share_tooltip")}
+            onClick={handleShareLink}
+            aria-label={t("share_button")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
           <button
             className="icon-btn"
             title={isDark ? "Light" : "Dark"}

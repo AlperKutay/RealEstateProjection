@@ -80,6 +80,18 @@ function withSeededRandom(seed, fn) {
   try { return fn(); } finally { Math.random = orig; }
 }
 
+// Extend a per-year override array to a longer horizon by repeating the
+// array's last value (so the trend the user drew keeps going). Falls back
+// to the supplied scalar when the array is empty.
+function extendPerYearArray(arr, newLen, fallback) {
+  if (!Array.isArray(arr)) return arr;
+  if (arr.length >= newLen) return arr;
+  const last = arr.length ? arr[arr.length - 1] : (fallback ?? 0);
+  const padded = arr.slice();
+  while (padded.length < newLen) padded.push(last);
+  return padded;
+}
+
 // If `extendToYears` is greater than the scenario's own horizon, the projection
 // is re-run on that longer horizon while pinning the loan term to the original
 // (so the user's "5y mortgage" becomes "5y mortgage + N extra credit-free
@@ -93,6 +105,20 @@ function computeResult(scn, allAssetData, extendToYears = null, seed = null) {
     const origLoanTerm = input.loan_term_years ?? originalYears;
     input.loan_term_years = Math.min(origLoanTerm, originalYears);
     input.years = extendToYears;
+    // Per-year override arrays were sized to the scenario's own horizon. The
+    // engine validates length === years and silently falls back to flat mode
+    // when they don't match. Pad to the new horizon so the user's custom
+    // FX / inflation distribution survives the extension.
+    if (input.dollar_growth_mode === "yearly") {
+      input.dollar_growth_per_year = extendPerYearArray(
+        input.dollar_growth_per_year, extendToYears, input.dollar_growth_rate,
+      );
+    }
+    if (input.turkey_inflation_mode === "yearly") {
+      input.turkey_inflation_per_year = extendPerYearArray(
+        input.turkey_inflation_per_year, extendToYears, input.turkey_inflation,
+      );
+    }
   }
   input.assets = {};
   for (const sym of scn.assets || []) {

@@ -776,9 +776,18 @@ const REPORT_CSS = `
 // ===== Inputs helpers — surface every form value explicitly so the printed
 // report can stand alone =====
 
+// The app's t() returns the key itself when a translation is missing, so
+// `t(k) || fallback` is a trap (the key string is truthy). Use this guard
+// whenever falling back to inline TR/EN strings.
+function tt(t, key, fb) {
+  const v = t(key);
+  return (v && v !== key) ? v : fb;
+}
+
 function inputRows(form, result, t, lang) {
-  const perMonth = t("rpt_per_month") || (lang === "tr" ? "/ay" : "/mo");
-  const perYear = t("rpt_per_year") || (lang === "tr" ? "/yıl" : "/yr");
+  const perMonth = tt(t, "rpt_per_month", lang === "tr" ? "/ay" : "/mo");
+  const perYear = tt(t, "rpt_per_year", lang === "tr" ? "/yıl" : "/yr");
+  const yearlyBadge = lang === "tr" ? " (yıl yıl)" : " (yearly)";
   const fxStart = (form.start_dollar_tl ?? 0).toFixed(2) + " ₺";
   const loanAmount = result && result.loan_amount_tl != null
     ? result.loan_amount_tl
@@ -793,17 +802,17 @@ function inputRows(form, result, t, lang) {
     [t("f_down"), fmtTLFull_R(form.initial_noncredit_amount_tl)],
     [t("f_loan_amount"), fmtTLFull_R(loanAmount)],
   ];
-  groups.push({ title: t("rpt_group_loan"), rows: loan });
+  groups.push({ title: tt(t, "rpt_group_loan", lang === "tr" ? "Kredi" : "Loan"), rows: loan });
 
   const macro = [
     [t("f_start_dollar"), fxStart],
-    [t("f_dollar_growth") + (form.dollar_growth_mode === "yearly" ? " (yıl yıl)" : ""),
+    [t("f_dollar_growth") + (form.dollar_growth_mode === "yearly" ? yearlyBadge : ""),
       `${(form.dollar_growth_rate ?? 0).toFixed(2)} %`],
-    [t("f_tr_inflation") + (form.turkey_inflation_mode === "yearly" ? " (yıl yıl)" : ""),
+    [t("f_tr_inflation") + (form.turkey_inflation_mode === "yearly" ? yearlyBadge : ""),
       `${(form.turkey_inflation ?? 0).toFixed(2)} %`],
     [t("f_us_inflation"), `${(form.usa_inflation ?? 0).toFixed(2)} %`],
   ];
-  groups.push({ title: t("rpt_group_macro"), rows: macro });
+  groups.push({ title: tt(t, "rpt_group_macro", lang === "tr" ? "Makro" : "Macro"), rows: macro });
 
   const life = [
     [t("f_rent"), `${fmtTLFull_R(form.initial_monthly_rent_tl)}${perMonth}`],
@@ -812,7 +821,7 @@ function inputRows(form, result, t, lang) {
     life.push([t("f_salary_amount"), `${fmtTLFull_R(form.start_salary_base)} ${form.salary_currency || ""}`]);
     life.push([t("f_salary_growth"), `${(form.salary_growth ?? 0).toFixed(2)} %`]);
   }
-  groups.push({ title: t("rpt_group_life"), rows: life });
+  groups.push({ title: tt(t, "rpt_group_life", lang === "tr" ? "Kira & Maaş" : "Rent & Salary"), rows: life });
 
   const costs = [];
   if (form.annual_property_tax_rate > 0) costs.push([t("f_annual_property_tax_rate"), `${form.annual_property_tax_rate} %`]);
@@ -821,7 +830,7 @@ function inputRows(form, result, t, lang) {
   if (form.annual_maintenance_rate > 0) costs.push([t("f_annual_maintenance_rate"), `${form.annual_maintenance_rate} %`]);
   if (form.transaction_cost_buy_pct > 0) costs.push([t("f_transaction_cost_buy_pct"), `${form.transaction_cost_buy_pct} %`]);
   if (form.transaction_cost_sell_pct > 0) costs.push([t("f_transaction_cost_sell_pct"), `${form.transaction_cost_sell_pct} %`]);
-  if (costs.length) groups.push({ title: t("rpt_group_costs"), rows: costs });
+  if (costs.length) groups.push({ title: tt(t, "rpt_group_costs", lang === "tr" ? "Giderler" : "Costs"), rows: costs });
 
   return groups;
 }
@@ -868,14 +877,16 @@ function renderYearlyRateTableHtml(form, result, t, lang) {
   const rows = perYearRateTableRows(form, result);
   const usdMode = form.dollar_growth_mode === "yearly" ? "yearly" : "flat";
   const trMode = form.turkey_inflation_mode === "yearly" ? "yearly" : "flat";
-  const usdHeader = t("f_dollar_growth") + (usdMode === "yearly" ? " (" + t("re_mode_yearly").toLowerCase() + ")" : "");
-  const trHeader = t("f_tr_inflation") + (trMode === "yearly" ? " (" + t("re_mode_yearly").toLowerCase() + ")" : "");
+  const yearlyTag = tt(t, "re_mode_yearly", lang === "tr" ? "Yıl yıl" : "Yearly").toLowerCase();
+  const usdHeader = t("f_dollar_growth") + (usdMode === "yearly" ? ` (${yearlyTag})` : "");
+  const trHeader = t("f_tr_inflation") + (trMode === "yearly" ? ` (${yearlyTag})` : "");
+  const yearHeader = tt(t, "re_year_label", lang === "tr" ? "Yıl" : "Year");
   const fxHeader = "USD/TL";
   return `
     <table class="rate-table">
       <thead>
         <tr>
-          <th>${escapeHtml(t("re_year_label") || (lang === "tr" ? "Yıl" : "Year"))}</th>
+          <th>${escapeHtml(yearHeader)}</th>
           <th>${escapeHtml(usdHeader)}</th>
           <th>${escapeHtml(trHeader)}</th>
           <th>${escapeHtml(fxHeader)}</th>
@@ -1085,7 +1096,7 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
   const pageRates = `
     <div class="page">
       ${renderHeader(t, lang, "single", scenarioName)}
-      <h2 class="section-title">${escapeHtml(t("rpt_per_year_rates"))}<small>${escapeHtml(t("rpt_per_year_rates_sub"))}</small></h2>
+      <h2 class="section-title">${escapeHtml(tt(t, "rpt_per_year_rates", lang === "tr" ? "Yıl yıl kur ve enflasyon" : "Year-by-year FX & inflation"))}<small>${escapeHtml(tt(t, "rpt_per_year_rates_sub", lang === "tr" ? "Modelin her yıl uyguladığı USD artışı, TR enflasyonu ve USD/TL kuru." : "The USD growth, TR inflation, and USD/TL rate the model applies each year."))}</small></h2>
       ${renderYearlyRateTableHtml(form, result, t, lang)}
       <div class="page-number">2</div>
     </div>
@@ -1304,7 +1315,7 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
         ${legendHtml}
       </div>
 
-      <h2 class="section-title">${escapeHtml(t("rpt_assumptions"))}<small>${escapeHtml(t("rpt_inputs_table"))}</small></h2>
+      <h2 class="section-title">${escapeHtml(t("rpt_assumptions"))}<small>${escapeHtml(tt(t, "rpt_inputs_table", lang === "tr" ? "Tüm girdilerin senaryolar arası karşılaştırması." : "Side-by-side comparison of every input."))}</small></h2>
       ${inputsTableHtml}
 
       <h2 class="section-title">${escapeHtml(t("rpt_compare_metrics"))}<small>${escapeHtml(t("scn_metrics_sub"))}</small></h2>
@@ -1333,7 +1344,7 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
   const pageRates = `
     <div class="page">
       ${renderHeader(t, lang, "compare")}
-      <h2 class="section-title">${escapeHtml(t("rpt_per_year_rates"))}<small>${escapeHtml(t("rpt_per_year_rates_sub"))}</small></h2>
+      <h2 class="section-title">${escapeHtml(tt(t, "rpt_per_year_rates", lang === "tr" ? "Yıl yıl kur ve enflasyon" : "Year-by-year FX & inflation"))}<small>${escapeHtml(tt(t, "rpt_per_year_rates_sub", lang === "tr" ? "Modelin her yıl uyguladığı USD artışı, TR enflasyonu ve USD/TL kuru." : "The USD growth, TR inflation, and USD/TL rate the model applies each year."))}</small></h2>
       ${perYearTablesHtml}
       <div class="page-number">2</div>
     </div>

@@ -358,6 +358,58 @@ test("loan_term_years < years: total_paid_tl reflects only the actual payments",
   assert.ok(Math.abs(r.total_paid_tl - r.monthly_tl_payment * 60) < 1e-6);
 });
 
+// --- Phase 3.3: per-year rate overrides ------------------------------
+
+test("flat mode (default) is back-compat: missing mode keys behave like before", () => {
+  const a = runProjection(baseInput());
+  const b = runProjection(baseInput({
+    dollar_growth_mode: "flat",
+    turkey_inflation_mode: "flat",
+  }));
+  assert.equal(a.dollar_rates_annual[10], b.dollar_rates_annual[10]);
+  assert.equal(a.value_of_house_usd_yearly[10], b.value_of_house_usd_yearly[10]);
+  assert.equal(a.cumulative_rent_price_usd_yearly.at(-1), b.cumulative_rent_price_usd_yearly.at(-1));
+});
+
+test("yearly dollar_growth_per_year drives FX path exactly", () => {
+  // 10 years, alternating 50%/20% growth. Final FX = start × prod(1+r_i).
+  const perYear = [50, 20, 50, 20, 50, 20, 50, 20, 50, 20];
+  const r = runProjection(baseInput({
+    dollar_growth_mode: "yearly",
+    dollar_growth_per_year: perYear,
+  }));
+  let expectedFx = 45;
+  for (const g of perYear) expectedFx *= 1 + g / 100;
+  assert.ok(Math.abs(r.dollar_rates_annual[10] - expectedFx) / expectedFx < 1e-12);
+  // The effective_dollar_growth_annual scalar is the geometric mean of the path.
+  const geoMean = Math.pow(expectedFx / 45, 1 / 10) - 1;
+  assert.ok(Math.abs(r.effective_dollar_growth_annual - geoMean) < 1e-12);
+});
+
+test("yearly turkey_inflation_per_year drives house & rent in TL", () => {
+  // House nominal TL at end = start_value × prod(1+r_i).
+  const perYear = [10, 30, 20, 25, 40, 15, 20, 30, 10, 35];
+  const r = runProjection(baseInput({
+    turkey_inflation_mode: "yearly",
+    turkey_inflation_per_year: perYear,
+  }));
+  let expectedMul = 1;
+  for (const g of perYear) expectedMul *= 1 + g / 100;
+  const expectedHouseTl = 2_100_000 * expectedMul;
+  const actualHouseTl = r.value_of_house_usd_yearly[10] * r.dollar_rates_annual[10];
+  assert.ok(Math.abs(actualHouseTl - expectedHouseTl) / expectedHouseTl < 1e-9);
+});
+
+test("yearly mode with wrong-length array falls back to flat", () => {
+  // perYear array length must equal years; otherwise the engine ignores it.
+  const r = runProjection(baseInput({
+    dollar_growth_mode: "yearly",
+    dollar_growth_per_year: [50, 20, 50], // length 3 ≠ years (10)
+  }));
+  const expectedFlat = 45 * Math.pow(1 + 35 / 100, 10);
+  assert.ok(Math.abs(r.dollar_rates_annual[10] - expectedFlat) / expectedFlat < 1e-12);
+});
+
 test("early-payoff scenario: full-horizon series stay populated past loan-end", () => {
   // The model must not truncate house/rent/carry series when the loan ends.
   // Series lengths and finite values at the final index confirm a clean run.

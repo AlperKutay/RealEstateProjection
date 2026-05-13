@@ -97,6 +97,43 @@ function effectiveDollarGrowth(inp) {
   return { annual, monthly };
 }
 
+// Build annual + monthly compound paths for a value starting at `start` and
+// growing each year. Supports three modes:
+//   - flat:   single annual percent (back-compat with the original engine)
+//   - yearly: per-year array of percents (the new rate-editor mode)
+//   - random: deterministic flat path replaced by randomMonthlyPath when
+//             allowRandom + inp.generate_random
+// Always returns { annual: length years+1, monthly: length years*12+1,
+// annualMean, monthlyMean } so downstream USD-conversion code stays uniform.
+function buildCompoundPaths(start, inp, opts) {
+  const { mode, perYear, flatPct, allowRandom } = opts;
+  if (mode === "yearly" && Array.isArray(perYear) && perYear.length === inp.years) {
+    const annual = [start];
+    for (const r of perYear) annual.push(annual[annual.length - 1] * (1 + r / 100));
+    const monthly = [start];
+    for (let y = 0; y < inp.years; y++) {
+      const mRate = Math.pow(1 + perYear[y] / 100, 1 / 12) - 1;
+      for (let m = 0; m < 12; m++) monthly.push(monthly[monthly.length - 1] * (1 + mRate));
+    }
+    const totalMul = annual[annual.length - 1] / start;
+    const annualMean = Math.pow(totalMul, 1 / inp.years) - 1;
+    const monthlyMean = Math.pow(1 + annualMean, 1 / 12) - 1;
+    return { annual, monthly, annualMean, monthlyMean };
+  }
+  const annualPct = (flatPct ?? 0) / 100;
+  const monthlyRate = Math.pow(1 + annualPct, 1 / 12) - 1;
+  if (allowRandom && inp.generate_random) {
+    const r = randomMonthlyPath(start, inp.years, flatPct ?? 0);
+    return { annual: r.yearlyPath, monthly: r.monthly, annualMean: annualPct, monthlyMean: monthlyRate };
+  }
+  return {
+    annual: compoundSeries(start, annualPct, inp.years),
+    monthly: compoundSeries(start, monthlyRate, inp.years * 12),
+    annualMean: annualPct,
+    monthlyMean: monthlyRate,
+  };
+}
+
 function monthlyFromYearlySalary(yearlyArr, monthsToIncrease, dollarRatesMonthly, euroDollarRate, salaryCurrency) {
   const monthly = [];
   for (let i = 0; i < monthsToIncrease; i++) monthly.push(yearlyArr[0] / 12);
@@ -147,21 +184,57 @@ function runProjection(inp) {
   const monthlyTlPayment = amortizedMonthlyPayment(loan, inp.interest_rate / 100, loanMonths);
   const annualTlPayment = monthlyTlPayment * 12;
 
-  // Effective rates
-  const { annual: dollarGrowthAnnual, monthly: dollarGrowthMonthly } = effectiveDollarGrowth(inp);
-  const turkeyInflationAnnual = inp.turkey_inflation / 100;
-  const turkeyInflationMonthly = Math.pow(1 + turkeyInflationAnnual, 1 / 12) - 1;
+  // ---- Dollar growth (flat or per-year)
+  // In yearly mode the user supplies one growth rate per year; we apply
+  // optional USA-inflation deflation per year, then build paths.
+  const usInfDeflate = inp.deflate_dollar_by_us_inflation ? (inp.usa_inflation ?? 0) : 0;
+  const dollarPerYear =
+    inp.dollar_growth_mode === "yearly" &&
+    Array.isArray(inp.dollar_growth_per_year) &&
+    inp.dollar_growth_per_year.length === inp.years
+      ? inp.dollar_growth_per_year.map((r) => r - usInfDeflate)
+      : null;
 
-  // Dollar rate paths
-  let dollarRatesAnnual, dollarRatesMonthly;
-  if (inp.generate_random) {
-    const r = randomMonthlyPath(inp.start_dollar_tl, inp.years, dollarGrowthAnnual * 100);
-    dollarRatesAnnual = r.yearlyPath;
-    dollarRatesMonthly = r.monthly;
+  let dollarRatesAnnual, dollarRatesMonthly, dollarGrowthAnnual, dollarGrowthMonthly;
+  if (dollarPerYear) {
+    const dp = buildCompoundPaths(inp.start_dollar_tl, inp, {
+      mode: "yearly", perYear: dollarPerYear, flatPct: 0, allowRandom: false,
+    });
+    dollarRatesAnnual = dp.annual;
+    dollarRatesMonthly = dp.monthly;
+    dollarGrowthAnnual = dp.annualMean;
+    dollarGrowthMonthly = dp.monthlyMean;
   } else {
-    dollarRatesAnnual = compoundSeries(inp.start_dollar_tl, dollarGrowthAnnual, inp.years);
-    dollarRatesMonthly = compoundSeries(inp.start_dollar_tl, dollarGrowthMonthly, nMonths);
+    const eff = effectiveDollarGrowth(inp);
+    dollarGrowthAnnual = eff.annual;
+    dollarGrowthMonthly = eff.monthly;
+    if (inp.generate_random) {
+      const r = randomMonthlyPath(inp.start_dollar_tl, inp.years, dollarGrowthAnnual * 100);
+      dollarRatesAnnual = r.yearlyPath;
+      dollarRatesMonthly = r.monthly;
+    } else {
+      dollarRatesAnnual = compoundSeries(inp.start_dollar_tl, dollarGrowthAnnual, inp.years);
+      dollarRatesMonthly = compoundSeries(inp.start_dollar_tl, dollarGrowthMonthly, nMonths);
+    }
   }
+
+  // ---- Turkey inflation (flat or per-year)
+  const trPerYear =
+    inp.turkey_inflation_mode === "yearly" &&
+    Array.isArray(inp.turkey_inflation_per_year) &&
+    inp.turkey_inflation_per_year.length === inp.years
+      ? inp.turkey_inflation_per_year
+      : null;
+  const trMode = trPerYear ? "yearly" : "flat";
+  // Effective scalar TR inflation — geometric mean when per-year, flat otherwise.
+  let turkeyInflationAnnual, turkeyInflationMonthly;
+  if (trPerYear) {
+    const mul = trPerYear.reduce((p, r) => p * (1 + r / 100), 1);
+    turkeyInflationAnnual = Math.pow(mul, 1 / inp.years) - 1;
+  } else {
+    turkeyInflationAnnual = (inp.turkey_inflation ?? 0) / 100;
+  }
+  turkeyInflationMonthly = Math.pow(1 + turkeyInflationAnnual, 1 / 12) - 1;
 
   // Payment in USD — zero after the loan is paid off.
   const monthlyPaymentTlArr = Array.from({ length: nMonths }, (_, m) => m < loanMonths ? monthlyTlPayment : 0);
@@ -208,16 +281,13 @@ function runProjection(inp) {
     { length: inp.years + 1 }, (_, y) => totalCreditUsdMonthly[y * 12],
   );
 
-  // House value
-  let houseTlYearly, houseTlMonthly;
-  if (inp.generate_random) {
-    const r = randomMonthlyPath(inp.value_of_house_tl, inp.years, inp.turkey_inflation);
-    houseTlYearly = r.yearlyPath;
-    houseTlMonthly = r.monthly;
-  } else {
-    houseTlYearly = compoundSeries(inp.value_of_house_tl, turkeyInflationAnnual, inp.years);
-    houseTlMonthly = compoundSeries(inp.value_of_house_tl, turkeyInflationMonthly, nMonths);
-  }
+  // House value — grows by TR inflation (flat scalar, per-year array, or random walk).
+  const houseTlPaths = buildCompoundPaths(inp.value_of_house_tl, inp, {
+    mode: trMode, perYear: trPerYear,
+    flatPct: inp.turkey_inflation ?? 0, allowRandom: true,
+  });
+  const houseTlYearly = houseTlPaths.annual;
+  const houseTlMonthly = houseTlPaths.monthly;
   const houseUsdYearly = div(houseTlYearly, dollarRatesAnnual);
   const houseUsdMonthly = div(houseTlMonthly, dollarRatesMonthly);
 
@@ -229,15 +299,14 @@ function runProjection(inp) {
   const netSaleValueUsdYearly = houseUsdYearly.map(h => h * (1 - sellPct));
   const netSaleValueUsdMonthly = houseUsdMonthly.map(h => h * (1 - sellPct));
 
-  // Rent
+  // Rent — annual starting figure grows by the same TR-inflation path as the
+  // house, supporting flat / per-year / random just like house value.
   const annualRentTlStart = inp.initial_monthly_rent_tl * 12;
-  let rentTlYearly;
-  if (inp.generate_random) {
-    const r = randomMonthlyPath(annualRentTlStart, inp.years, inp.turkey_inflation);
-    rentTlYearly = r.yearlyPath;
-  } else {
-    rentTlYearly = compoundSeries(annualRentTlStart, turkeyInflationAnnual, inp.years);
-  }
+  const rentTlPaths = buildCompoundPaths(annualRentTlStart, inp, {
+    mode: trMode, perYear: trPerYear,
+    flatPct: inp.turkey_inflation ?? 0, allowRandom: true,
+  });
+  const rentTlYearly = rentTlPaths.annual;
   const rentTlMonthly = [];
   for (let i = 0; i < rentTlYearly.length - 1; i++) {
     for (let j = 0; j < 12; j++) rentTlMonthly.push(rentTlYearly[i] / 12);

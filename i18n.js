@@ -290,6 +290,8 @@ window.I18N = {
     cmp_save: "Kıyaslamayı kaydet",
     cmp_save_saving: "Kaydediliyor…",
     cmp_save_title: "Başlık, senaryolar, grafik ve metrikleri tek PNG olarak indir.",
+    cmp_reroll: "Yeniden zar at",
+    cmp_reroll_title: "Tüm senaryolar için yeni bir rastgele örnek üret (senkron kalır).",
 
     step_compare: "Kıyas",
 
@@ -589,6 +591,8 @@ window.I18N = {
     cmp_save: "Save comparison",
     cmp_save_saving: "Saving…",
     cmp_save_title: "Download the title, scenarios, chart, and metrics as a single PNG.",
+    cmp_reroll: "Re-roll dice",
+    cmp_reroll_title: "Generate a fresh random realisation for every scenario (they stay synchronised).",
 
     step_compare: "Compare",
 

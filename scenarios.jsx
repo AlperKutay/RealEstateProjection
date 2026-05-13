@@ -507,11 +507,15 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   );
   // Same seed for every scenario in the compare run so their random FX +
   // inflation paths share a shape — visible differences then come from the
-  // scenarios' own parameters, not from independent dice rolls.
-  const COMPARE_SEED = 42;
+  // scenarios' own parameters, not from independent dice rolls. The user
+  // can click "Yeniden çek" to roll a fresh seed and see a different
+  // realization (all scenarios still stay in sync, just on a new shape).
+  const [compareSeed, setCompareSeed] = useState_S(42);
+  const anyRandom = activeScns.some((s) => s.form && s.form.generate_random);
+  const rerollSeed = () => setCompareSeed(Math.floor(Math.random() * 1e9));
   const computed = useMemo_S(
-    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears, COMPARE_SEED)),
-    [activeScns, allAssetData, maxYears]
+    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears, compareSeed)),
+    [activeScns, allAssetData, maxYears, compareSeed]
   );
   const results = useMemo_S(() => computed.map((c) => c.result), [computed]);
   const originalYearsByIdx = useMemo_S(
@@ -559,6 +563,19 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
           <p className="compare-sub">{t("scn_compare_sub").replace("{n}", String(scenarios.length))}</p>
         </div>
         <div className="cmp-head-actions">
+          {anyRandom ? (
+            <button className="btn btn-ghost" onClick={rerollSeed} title={t("cmp_reroll_title")}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3"/>
+                <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/>
+                <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/>
+                <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
+                <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>
+                <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/>
+              </svg>
+              {t("cmp_reroll")}
+            </button>
+          ) : null}
           <button className="btn btn-ghost" onClick={saveCompare} disabled={saving} title={t("cmp_save_title")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

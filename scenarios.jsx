@@ -63,12 +63,30 @@ window.useScenarios = useScenarios;
 
 // ---------- Compute helper ----------
 
+// Deterministic PRNG (mulberry32). When compare view runs every scenario with
+// the same seed, their random FX/inflation paths share the exact same shape —
+// so a curve looking "different" between scenarios genuinely reflects a
+// parameter difference, not a roll-of-the-dice.
+function withSeededRandom(seed, fn) {
+  const orig = Math.random;
+  let s = seed | 0;
+  Math.random = () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  try { return fn(); } finally { Math.random = orig; }
+}
+
 // If `extendToYears` is greater than the scenario's own horizon, the projection
 // is re-run on that longer horizon while pinning the loan term to the original
 // (so the user's "5y mortgage" becomes "5y mortgage + N extra credit-free
 // years"). The original horizon is returned so the chart can render the tail
-// as dashed.
-function computeResult(scn, allAssetData, extendToYears = null) {
+// as dashed. If `seed` is provided, the random number generator is reset for
+// that single call so multiple scenarios stay synchronised.
+function computeResult(scn, allAssetData, extendToYears = null, seed = null) {
   const input = { ...scn.form };
   const originalYears = input.years;
   if (extendToYears != null && extendToYears > originalYears) {
@@ -86,7 +104,8 @@ function computeResult(scn, allAssetData, extendToYears = null) {
     }
   }
   try {
-    const result = runProjection(input);
+    const compute = () => runProjection(input);
+    const result = seed != null ? withSeededRandom(seed, compute) : compute();
     return { result, originalYears };
   } catch (e) {
     console.warn("Scenario compute failed", scn.name, e);
@@ -486,8 +505,12 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
     () => activeScns.reduce((m, s) => Math.max(m, s.form.years), 0),
     [activeScns]
   );
+  // Same seed for every scenario in the compare run so their random FX +
+  // inflation paths share a shape — visible differences then come from the
+  // scenarios' own parameters, not from independent dice rolls.
+  const COMPARE_SEED = 42;
   const computed = useMemo_S(
-    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears)),
+    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears, COMPARE_SEED)),
     [activeScns, allAssetData, maxYears]
   );
   const results = useMemo_S(() => computed.map((c) => c.result), [computed]);

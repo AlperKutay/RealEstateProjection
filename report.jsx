@@ -1266,8 +1266,11 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang, chartK
   // scenarios to the longest horizon so they share an x-axis in the overlay
   // charts (mirrors what CompareView does on-screen).
   const maxYears = scenarios.reduce((m, s) => Math.max(m, s.form.years || 0), 0);
+  // Same seed as CompareView (scenarios.jsx) so the printed report shows the
+  // same random shapes the user sees on screen.
+  const COMPARE_SEED = 42;
   const results = scenarios.map((s) => {
-    const out = window.computeScenarioResult(s, allAssetData, maxYears);
+    const out = window.computeScenarioResult(s, allAssetData, maxYears, COMPARE_SEED);
     return out && typeof out === "object" && "result" in out ? out.result : out;
   });
 

@@ -98,11 +98,40 @@ const MACRO_FIELDS = [
   "deflate_dollar_by_us_inflation",
   "generate_random",
 ];
+// Resize an array to exactly `len`. Truncates if too long, pads with the
+// array's last value (or fallback) if too short. The engine checks
+// length === years and silently falls back to flat mode when they don't
+// match — this keeps the macro override visible.
+function resizePerYearArray(arr, len, fallback) {
+  if (!Array.isArray(arr)) return arr;
+  if (arr.length === len) return arr;
+  if (arr.length > len) return arr.slice(0, len);
+  const last = arr.length ? arr[arr.length - 1] : (fallback ?? 0);
+  const padded = arr.slice();
+  while (padded.length < len) padded.push(last);
+  return padded;
+}
+
 function applyMacroOverride(scn, base) {
   if (!base || base.id === scn.id) return scn;
   const overrides = {};
   for (const k of MACRO_FIELDS) {
     if (k in base.form) overrides[k] = base.form[k];
+  }
+  // Per-year arrays must align with the TARGET scenario's years, not the
+  // base's — otherwise the engine rejects the override.
+  const targetYears = scn.form.years;
+  if (Array.isArray(overrides.dollar_growth_per_year)) {
+    overrides.dollar_growth_per_year = resizePerYearArray(
+      overrides.dollar_growth_per_year, targetYears,
+      overrides.dollar_growth_rate ?? scn.form.dollar_growth_rate,
+    );
+  }
+  if (Array.isArray(overrides.turkey_inflation_per_year)) {
+    overrides.turkey_inflation_per_year = resizePerYearArray(
+      overrides.turkey_inflation_per_year, targetYears,
+      overrides.turkey_inflation ?? scn.form.turkey_inflation,
+    );
   }
   return { ...scn, form: { ...scn.form, ...overrides } };
 }

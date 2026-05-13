@@ -63,8 +63,19 @@ window.useScenarios = useScenarios;
 
 // ---------- Compute helper ----------
 
-function computeResult(scn, allAssetData) {
+// If `extendToYears` is greater than the scenario's own horizon, the projection
+// is re-run on that longer horizon while pinning the loan term to the original
+// (so the user's "5y mortgage" becomes "5y mortgage + N extra credit-free
+// years"). The original horizon is returned so the chart can render the tail
+// as dashed.
+function computeResult(scn, allAssetData, extendToYears = null) {
   const input = { ...scn.form };
+  const originalYears = input.years;
+  if (extendToYears != null && extendToYears > originalYears) {
+    const origLoanTerm = input.loan_term_years ?? originalYears;
+    input.loan_term_years = Math.min(origLoanTerm, originalYears);
+    input.years = extendToYears;
+  }
   input.assets = {};
   for (const sym of scn.assets || []) {
     if (allAssetData[sym]) {
@@ -75,10 +86,11 @@ function computeResult(scn, allAssetData) {
     }
   }
   try {
-    return runProjection(input);
+    const result = runProjection(input);
+    return { result, originalYears };
   } catch (e) {
     console.warn("Scenario compute failed", scn.name, e);
-    return null;
+    return { result: null, originalYears };
   }
 }
 window.computeScenarioResult = computeResult;
@@ -284,7 +296,7 @@ function fmtMetric(v, kind) {
 
 // ---------- Overlay chart ----------
 
-function CompareChart({ scenarios, results, view, t, isDark }) {
+function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, isDark }) {
   const canvasRef = useRef_S(null);
   const chartRef = useRef_S(null);
 
@@ -292,12 +304,12 @@ function CompareChart({ scenarios, results, view, t, isDark }) {
     if (!canvasRef.current || !window.Chart) return;
     if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {} chartRef.current = null; }
     const def = OVERLAY_VIEWS[view];
+    const isMonthly = def.series.key === "monthly_payment_usd";
 
-    // Build labels: use the longest year axis among scenarios for x.
+    // Build labels: use the longest axis among scenarios for x.
     let labelsArr = [];
     for (const r of results) {
       if (!r) continue;
-      const isMonthly = def.series.key === "monthly_payment_usd";
       const axis = isMonthly ? r.months_axis : r.years_axis;
       if (axis && axis.length > labelsArr.length) labelsArr = Array.from(axis);
     }
@@ -310,6 +322,12 @@ function CompareChart({ scenarios, results, view, t, isDark }) {
       const arr = r[def.series.key];
       if (!arr) continue;
       const color = hueToColor(s.hue);
+      // Boundary index between "scenario's own horizon" and "auto-extended
+      // credit-free tail". Past this point the engine has zero monthly
+      // payment; visualize as a dashed segment so the eye can tell the
+      // genuine vs the implied region apart.
+      const origYears = originalYearsByIdx[i] ?? s.form.years;
+      const boundary = isMonthly ? origYears * 12 : origYears;
       datasets.push({
         label: s.name,
         data: arr,
@@ -320,6 +338,9 @@ function CompareChart({ scenarios, results, view, t, isDark }) {
         pointRadius: 0,
         pointHoverRadius: 5,
         fill: false,
+        segment: {
+          borderDash: (ctx) => (ctx.p1DataIndex > boundary ? [6, 4] : undefined),
+        },
       });
     }
 
@@ -398,9 +419,21 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
     [scenarios, hidden]
   );
 
-  const results = useMemo_S(
-    () => activeScns.map((s) => computeResult(s, allAssetData)),
-    [activeScns, allAssetData]
+  // All scenarios are computed to the longest horizon so they can be drawn
+  // on a shared x-axis. Each entry remembers its original horizon so the
+  // chart can render the "credit-free tail" as a dashed segment.
+  const maxYears = useMemo_S(
+    () => activeScns.reduce((m, s) => Math.max(m, s.form.years), 0),
+    [activeScns]
+  );
+  const computed = useMemo_S(
+    () => activeScns.map((s) => computeResult(s, allAssetData, maxYears)),
+    [activeScns, allAssetData, maxYears]
+  );
+  const results = useMemo_S(() => computed.map((c) => c.result), [computed]);
+  const originalYearsByIdx = useMemo_S(
+    () => computed.map((c) => c.originalYears),
+    [computed]
   );
 
   const toggleHide = (id) => {
@@ -491,7 +524,7 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
           </div>
         </div>
         <div className="cmp-chart-wrap">
-          <CompareChart scenarios={activeScns} results={results} view={view} t={t} isDark={isDark} />
+          <CompareChart scenarios={activeScns} results={results} originalYearsByIdx={originalYearsByIdx} view={view} t={t} isDark={isDark} />
         </div>
       </div>
 

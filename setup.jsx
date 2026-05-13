@@ -518,6 +518,10 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
               title={t("opt_real_usd")} sub={t("opt_real_usd_sub")} />
             <ToggleCard on={form.generate_random} onChange={(v) => setF({ generate_random: v })}
               title={t("opt_random")} sub={t("opt_random_sub")} />
+            {form.generate_random ? (
+              <ToggleCard on={form.monte_carlo !== false} onChange={(v) => setF({ monte_carlo: v })}
+                title={t("opt_monte_carlo")} sub={t("opt_monte_carlo_sub")} />
+            ) : null}
             <ToggleCard on={form.project_initial_money_with_asset} onChange={(v) => setF({ project_initial_money_with_asset: v })}
               title={t("opt_invest_down")} sub={t("opt_invest_down_sub")} />
           </div>

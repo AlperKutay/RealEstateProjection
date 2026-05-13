@@ -158,6 +158,8 @@ window.I18N = {
     opt_real_usd_sub: "Dolar artışından ABD enflasyonunu düş; satın alma gücü olarak.",
     opt_random: "Rastgele dalgalanma",
     opt_random_sub: "Düz büyüme yerine yıllık ±%30 oynaklıklı yol simüle et.",
+    opt_monte_carlo: "Monte Carlo (P10–P90)",
+    opt_monte_carlo_sub: "Tek yol yerine 400 simülasyon koş; grafikte olasılık zarfı (P10/medyan/P90) göster.",
     opt_invest_down: "Peşinatı varlığa yatır",
     opt_invest_down_sub: "Karşılaştırılan varlıkların başlangıç değerini peşinata eşitle.",
 
@@ -463,6 +465,8 @@ window.I18N = {
     opt_real_usd_sub: "Subtract US inflation from dollar growth for purchasing power.",
     opt_random: "Random fluctuation",
     opt_random_sub: "Simulate ±30% yearly volatility instead of smooth growth.",
+    opt_monte_carlo: "Monte Carlo (P10–P90)",
+    opt_monte_carlo_sub: "Run 400 simulations and plot the probability envelope (P10 / median / P90) instead of a single path.",
     opt_invest_down: "Invest down payment",
     opt_invest_down_sub: "Set the alternative asset's starting value to your down payment.",
     assets_title: "Compare with which investments?",

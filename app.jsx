@@ -237,9 +237,10 @@ function App() {
             };
           }
         }
-        const res = input.generate_random && typeof runMonteCarlo === "function"
-          ? runMonteCarlo(input)
-          : runProjection(input);
+        const useMonteCarlo = input.generate_random
+          && input.monte_carlo !== false
+          && typeof runMonteCarlo === "function";
+        const res = useMonteCarlo ? runMonteCarlo(input) : runProjection(input);
         setResult(res);
         setView("results");
       } catch (e) { console.warn(e); }
@@ -267,9 +268,10 @@ function App() {
           };
         }
       }
-      const res = input.generate_random && typeof runMonteCarlo === "function"
-        ? runMonteCarlo(input)
-        : runProjection(input);
+      const useMonteCarlo = input.generate_random
+        && input.monte_carlo !== false
+        && typeof runMonteCarlo === "function";
+      const res = useMonteCarlo ? runMonteCarlo(input) : runProjection(input);
       setResult(res);
       setView("results");
       // scroll to top of results

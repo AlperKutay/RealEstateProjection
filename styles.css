@@ -1215,6 +1215,19 @@ input, select { font-family: inherit; color: inherit; }
   flex-wrap: wrap;
   align-items: center;
 }
+.cmp-macro-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.cmp-macro-active {
+  font-size: 11px;
+  color: var(--positive);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0 6px;
+}
 .cmp-macro-picker {
   display: inline-flex;
   align-items: center;

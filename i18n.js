@@ -293,6 +293,7 @@ window.I18N = {
     cmp_macro_base: "Makro kaynağı",
     cmp_macro_base_own: "Her senaryo kendi parametreleri",
     cmp_macro_base_title: "Tüm senaryolar bu senaryonun USD/TL artışı ve enflasyon değerlerini kullanır. Kendi senaryosunun macro'sunu kullanmak için \"Her senaryo kendi parametreleri\"ni seç.",
+    cmp_macro_active: "senaryo {name} makrosunu kullanıyor",
 
     step_compare: "Kıyas",
 
@@ -595,6 +596,7 @@ window.I18N = {
     cmp_macro_base: "Macro source",
     cmp_macro_base_own: "Each scenario uses its own",
     cmp_macro_base_title: "All scenarios adopt this scenario's USD/TL growth and inflation values. Pick \"Each scenario uses its own\" to keep their own macro.",
+    cmp_macro_active: "scenario(s) using {name}'s macro",
 
     step_compare: "Compare",
 

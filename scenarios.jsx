@@ -655,18 +655,30 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
         </div>
         <div className="cmp-head-actions">
           {activeScns.length >= 2 ? (
-            <label className="cmp-macro-picker" title={t("cmp_macro_base_title")}>
-              <span className="cmp-macro-label">{t("cmp_macro_base")}</span>
-              <select
-                value={macroBaseId || ""}
-                onChange={(e) => setMacroBaseId(e.target.value || null)}
-              >
-                <option value="">{t("cmp_macro_base_own")}</option>
-                {activeScns.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </label>
+            <div className="cmp-macro-wrap">
+              <label className="cmp-macro-picker" title={t("cmp_macro_base_title")}>
+                <span className="cmp-macro-label">{t("cmp_macro_base")}</span>
+                <select
+                  value={macroBaseId || ""}
+                  onChange={(e) => setMacroBaseId(e.target.value || null)}
+                >
+                  <option value="">{t("cmp_macro_base_own")}</option>
+                  {activeScns.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </label>
+              {macroBaseId ? (() => {
+                const base = activeScns.find((x) => x.id === macroBaseId);
+                if (!base) return null;
+                const overridden = activeScns.filter((s) => s.id !== macroBaseId).length;
+                return (
+                  <span className="cmp-macro-active">
+                    ✓ {overridden} {t("cmp_macro_active").replace("{name}", base.name)}
+                  </span>
+                );
+              })() : null}
+            </div>
           ) : null}
           <button className="btn btn-ghost" onClick={saveCompare} disabled={saving} title={t("cmp_save_title")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

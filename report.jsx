@@ -1114,45 +1114,71 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
 }
 
 // ===== Public API: open new window with the report =====
-async function openReportWindow(html) {
-  const w = window.open("", "_blank", "noopener");
-  if (!w) {
-    alert("Pop-up engellendi — bu site için pop-up'lara izin verin / Pop-up blocked.");
-    return null;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  // give the embedded fonts + images a moment to load before showing print dialog
+// Pop-up blockers reject window.open() once the user-gesture chain has been
+// broken by an await. So we open the window synchronously up front with a
+// loading placeholder, then async-build the HTML and write into the same
+// window. Also drop the "noopener" feature — Chromium returns null for the
+// reference under noopener, which would defeat the whole flow.
+function openPlaceholderWindow(loadingLabel) {
+  const w = window.open("about:blank", "_blank");
+  if (!w) return null;
+  try {
+    w.document.open();
+    w.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><title>${loadingLabel}</title>` +
+      `<style>body{font-family:Geist,system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;color:#76695b;background:#fbf8f3;}` +
+      `.spinner{width:38px;height:38px;border:3px solid #e8ddd0;border-top-color:#b26640;border-radius:50%;animation:s 0.9s linear infinite;margin-bottom:14px;}` +
+      `@keyframes s{to{transform:rotate(360deg)}}` +
+      `.label{font-size:14px;letter-spacing:0.02em;}</style></head>` +
+      `<body><div><div class="spinner"></div><div class="label">${loadingLabel}</div></div></body></html>`,
+    );
+    w.document.close();
+  } catch (_) {}
   return w;
 }
 
-async function generateSingleReport(args) {
+function writeReportAndPrint(w, html) {
   try {
-    const html = await buildSingleReportHTML(args);
-    const w = await openReportWindow(html);
-    if (!w) return;
-    // auto-launch print after a generous moment for fonts + images
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
     setTimeout(() => {
       try { w.focus(); w.print(); } catch (_) {}
     }, 900);
   } catch (e) {
+    console.error("Failed to write report into popup", e);
+  }
+}
+
+async function generateSingleReport(args) {
+  const loading = args.t ? args.t("rpt_busy") : "Rapor hazırlanıyor…";
+  const w = openPlaceholderWindow(loading);
+  if (!w) {
+    alert("Pop-up engellendi — bu site için pop-up'lara izin verin / Pop-up blocked.");
+    return;
+  }
+  try {
+    const html = await buildSingleReportHTML(args);
+    writeReportAndPrint(w, html);
+  } catch (e) {
     console.error("Report generation failed", e);
-    alert("Rapor oluşturulamadı: " + (e.message || e));
+    try { w.document.body.innerText = "Rapor oluşturulamadı: " + (e.message || e); } catch (_) {}
   }
 }
 
 async function generateCompareReport(args) {
+  const loading = args.t ? args.t("rpt_busy") : "Rapor hazırlanıyor…";
+  const w = openPlaceholderWindow(loading);
+  if (!w) {
+    alert("Pop-up engellendi — bu site için pop-up'lara izin verin / Pop-up blocked.");
+    return;
+  }
   try {
     const html = await buildCompareReportHTML(args);
-    const w = await openReportWindow(html);
-    if (!w) return;
-    setTimeout(() => {
-      try { w.focus(); w.print(); } catch (_) {}
-    }, 900);
+    writeReportAndPrint(w, html);
   } catch (e) {
     console.error("Compare report failed", e);
-    alert("Rapor oluşturulamadı: " + (e.message || e));
+    try { w.document.body.innerText = "Rapor oluşturulamadı: " + (e.message || e); } catch (_) {}
   }
 }
 

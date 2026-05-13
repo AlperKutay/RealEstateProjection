@@ -111,9 +111,23 @@ function buildCompoundPaths(start, inp, opts) {
     const annual = [start];
     for (const r of perYear) annual.push(annual[annual.length - 1] * (1 + r / 100));
     const monthly = [start];
-    for (let y = 0; y < inp.years; y++) {
-      const mRate = Math.pow(1 + perYear[y] / 100, 1 / 12) - 1;
-      for (let m = 0; m < 12; m++) monthly.push(monthly[monthly.length - 1] * (1 + mRate));
+    if (allowRandom && inp.generate_random) {
+      // Yearly target locked from the per-year array, but jitter the 12
+      // monthly multipliers within each year so the path looks like a
+      // realistic random walk (anchors back to the year-end value).
+      for (let y = 0; y < inp.years; y++) {
+        const yearMul = 1 + perYear[y] / 100;
+        const rawM = Array.from({ length: 12 }, () => uniform(0.98, 1.05));
+        const productPow = Math.pow(rawM.reduce((p, x) => p * x, 1), 1 / 12);
+        const yearMulPow = Math.pow(yearMul, 1 / 12);
+        const norm = rawM.map((x) => (x * yearMulPow) / productPow);
+        for (let m = 0; m < 12; m++) monthly.push(monthly[monthly.length - 1] * norm[m]);
+      }
+    } else {
+      for (let y = 0; y < inp.years; y++) {
+        const mRate = Math.pow(1 + perYear[y] / 100, 1 / 12) - 1;
+        for (let m = 0; m < 12; m++) monthly.push(monthly[monthly.length - 1] * (1 + mRate));
+      }
     }
     const totalMul = annual[annual.length - 1] / start;
     const annualMean = Math.pow(totalMul, 1 / inp.years) - 1;
@@ -235,7 +249,7 @@ function runProjection(inp) {
   let dollarRatesAnnual, dollarRatesMonthly, dollarGrowthAnnual, dollarGrowthMonthly;
   if (dollarPerYear) {
     const dp = buildCompoundPaths(inp.start_dollar_tl, inp, {
-      mode: "yearly", perYear: dollarPerYear, flatPct: 0, allowRandom: false,
+      mode: "yearly", perYear: dollarPerYear, flatPct: 0, allowRandom: true,
     });
     dollarRatesAnnual = dp.annual;
     dollarRatesMonthly = dp.monthly;

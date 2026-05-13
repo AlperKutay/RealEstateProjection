@@ -516,6 +516,46 @@ test("Monte Carlo: envelope spread shows up mid-term (intermediate volatility)",
   });
 });
 
+test("yearly mode + generate_random: monthly path jitters but lands on the per-year targets", () => {
+  // Without random: every month is smooth compound.
+  // With random: months should wobble, but each year-end value must still
+  // equal the deterministic yearly path so the user's chosen yearly targets
+  // are respected.
+  const perYear = [10, 30, 20, 25, 40, 15, 20, 30, 10, 35];
+  const inpFlat = baseInput({
+    turkey_inflation_mode: "yearly",
+    turkey_inflation_per_year: perYear,
+    generate_random: false,
+  });
+  const inpRand = baseInput({
+    turkey_inflation_mode: "yearly",
+    turkey_inflation_per_year: perYear,
+    generate_random: true,
+  });
+  withSeed(1234, () => {
+    const a = runProjection(inpFlat);
+    const b = runProjection(inpRand);
+    // House TL ratio = houseUsd * fx — check the underlying TL series via
+    // house_usd × dollar_rates which both engines share. Year boundaries
+    // align exactly between flat and random.
+    for (let y = 0; y <= 10; y++) {
+      const flatTl = a.value_of_house_usd_yearly[y] * a.dollar_rates_annual[y];
+      const randTl = b.value_of_house_usd_yearly[y] * b.dollar_rates_annual[y];
+      assert.ok(Math.abs(flatTl - randTl) / flatTl < 1e-9,
+        `year ${y}: TL house ${flatTl} vs ${randTl}`);
+    }
+    // Monthly path must NOT be byte-identical to the flat version (otherwise
+    // there's no jitter — that was the original bug).
+    let differs = false;
+    for (let m = 1; m < 60; m++) {
+      if (Math.abs(b.value_of_house_usd_monthly[m] - a.value_of_house_usd_monthly[m]) > 1e-9) {
+        differs = true; break;
+      }
+    }
+    assert.ok(differs, "expected intra-year monthly variation under random + yearly mode");
+  });
+});
+
 test("Monte Carlo: result still carries the standard fields (back-compat shape)", () => {
   withSeed(1, () => {
     const r = runMonteCarlo(baseInput({ generate_random: true }), 30);

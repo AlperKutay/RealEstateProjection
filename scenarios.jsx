@@ -235,6 +235,10 @@ const COMPARE_METRICS = [
     get: (r) => r.total_paid_tl },
   { key: "real_cost_usd",      label: "i_real_cost",       fmt: "usd",
     get: (r) => r.total_credit_amount_usd_annual.at(-1) },
+  { key: "net_payment_usd",    label: "i_net_payment",     fmt: "usd",
+    get: (r) => r.total_credit_minus_rent_usd_yearly
+      ? r.total_credit_minus_rent_usd_yearly.at(-1)
+      : null },
   { key: "house_final_usd",    label: "cmp_house_final",   fmt: "usd",
     get: (r) => r.value_of_house_usd_yearly.at(-1) },
   { key: "house_plus_rent",    label: "view_rent_vs",      fmt: "usd",
@@ -252,6 +256,7 @@ const METRIC_DIR = {
   monthly_payment_tl: "lower",
   total_paid_tl: "lower",
   real_cost_usd: "lower",
+  net_payment_usd: "lower",
   house_final_usd: "higher",
   house_plus_rent: "higher",
   house_appreciation: "higher",
@@ -267,6 +272,8 @@ const OVERLAY_VIEWS = {
     series: { key: "total_credit_amount_usd_annual", labelKey: "i_total_paid" }, unit: "USD" },
   rent_vs:    { titleKey: "view_rent_vs", subKey: "view_rent_vs_sub",
     series: { key: "house_plus_rent_yearly", labelKey: "view_rent_vs" }, unit: "USD" },
+  net_payment: { titleKey: "i_net_payment", subKey: "cmp_net_payment_sub",
+    series: { key: "total_credit_minus_rent_usd_yearly", labelKey: "i_net_payment" }, unit: "USD" },
   monthly_payment: { titleKey: "view_payment", subKey: "view_payment_sub",
     series: { key: "monthly_payment_usd", labelKey: "i_monthly_payment" }, unit: "USD/ay" },
   fx: { titleKey: "view_macro", subKey: "view_macro_sub",

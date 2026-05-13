@@ -252,6 +252,7 @@ window.I18N = {
     cmp_house_final: "Vade sonu ev değeri (USD)",
     cmp_fx_final: "Vade sonu USD/TL",
     cmp_total_paid_sub: "Toplam ödenen tutarı USD bazında biriken hâliyle karşılaştır.",
+    cmp_net_payment_sub: "Toplam ödediğinizden, kiracı kalsaydınız ödeyeceğiniz kirayı çıkar — net cep maliyeti.",
 
     step_compare: "Kıyas",
   },
@@ -468,6 +469,7 @@ window.I18N = {
     cmp_house_final: "Final home value (USD)",
     cmp_fx_final: "Final USD/TL",
     cmp_total_paid_sub: "Compare cumulative USD outlay across scenarios.",
+    cmp_net_payment_sub: "Subtract the rent you would have paid from your total outlay — net out-of-pocket cost.",
 
     step_compare: "Compare",
   },

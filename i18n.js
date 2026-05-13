@@ -253,6 +253,9 @@ window.I18N = {
     cmp_fx_final: "Vade sonu USD/TL",
     cmp_total_paid_sub: "Toplam ödenen tutarı USD bazında biriken hâliyle karşılaştır.",
     cmp_net_payment_sub: "Toplam ödediğinizden, kiracı kalsaydınız ödeyeceğiniz kirayı çıkar — net cep maliyeti.",
+    cmp_save: "Kıyaslamayı kaydet",
+    cmp_save_saving: "Kaydediliyor…",
+    cmp_save_title: "Başlık, senaryolar, grafik ve metrikleri tek PNG olarak indir.",
 
     step_compare: "Kıyas",
   },
@@ -470,6 +473,9 @@ window.I18N = {
     cmp_fx_final: "Final USD/TL",
     cmp_total_paid_sub: "Compare cumulative USD outlay across scenarios.",
     cmp_net_payment_sub: "Subtract the rent you would have paid from your total outlay — net out-of-pocket cost.",
+    cmp_save: "Save comparison",
+    cmp_save_saving: "Saving…",
+    cmp_save_title: "Download the title, scenarios, chart, and metrics as a single PNG.",
 
     step_compare: "Compare",
   },

@@ -420,6 +420,35 @@ function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, is
 function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   const [view, setView] = useState_S("decision");
   const [hidden, setHidden] = useState_S(new Set()); // ids hidden from comparison
+  const [saving, setSaving] = useState_S(false);
+  const compareRef = useRef_S(null);
+
+  const saveCompare = async () => {
+    if (!compareRef.current || !window.html2canvas || saving) return;
+    setSaving(true);
+    try {
+      // Pick a background that matches the current theme so the exported
+      // PNG isn't a transparent rectangle on light viewers.
+      const cssBg = getComputedStyle(document.body).backgroundColor || (isDark ? "#1c1917" : "#fafaf9");
+      const canvas = await window.html2canvas(compareRef.current, {
+        backgroundColor: cssBg,
+        scale: window.devicePixelRatio > 1 ? 2 : 1,
+        useCORS: true,
+        // Don't try to rasterize the floating tweaks panel or any other
+        // overlay that lives outside the compare panel.
+        ignoreElements: (el) => el.classList && el.classList.contains("tweaks-panel"),
+      });
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      const ts = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 16);
+      a.download = `compare-${ts}.png`;
+      a.click();
+    } catch (e) {
+      console.warn("Compare save failed", e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const activeScns = useMemo_S(
     () => scenarios.filter((s) => !hidden.has(s.id)),
@@ -476,15 +505,25 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   const overlay = OVERLAY_VIEWS[view];
 
   return (
-    <div className="compare" data-screen-label="03 Compare">
+    <div className="compare" data-screen-label="03 Compare" ref={compareRef}>
       <div className="compare-head">
         <div>
           <h2 className="compare-title">{t("scn_compare_title")}</h2>
           <p className="compare-sub">{t("scn_compare_sub").replace("{n}", String(scenarios.length))}</p>
         </div>
-        <button className="btn btn-ghost" onClick={onClose}>
-          ← {t("scn_back_to_results")}
-        </button>
+        <div className="cmp-head-actions">
+          <button className="btn btn-ghost" onClick={saveCompare} disabled={saving} title={t("cmp_save_title")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            {saving ? t("cmp_save_saving") : t("cmp_save")}
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>
+            ← {t("scn_back_to_results")}
+          </button>
+        </div>
       </div>
 
       {/* Scenario legend / toggles */}

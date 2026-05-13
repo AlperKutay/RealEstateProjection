@@ -310,3 +310,62 @@ test("end-to-end: random_generate matches deterministic at horizon (engine-level
       `final FX ${got} != deterministic ${expected}`);
   });
 });
+
+// --- Phase 3.x lite: loan_term_years separate from horizon -----------
+
+test("loan_term_years defaults to years (back-compat)", () => {
+  // Two runs with same inputs should produce identical outputs when
+  // loan_term_years is omitted vs explicitly equal to years.
+  const a = runProjection(baseInput());
+  const b = runProjection(baseInput({ loan_term_years: 10 }));
+  assert.equal(a.monthly_tl_payment, b.monthly_tl_payment);
+  assert.equal(a.total_paid_tl, b.total_paid_tl);
+});
+
+test("loan_term_years < years: monthly payment amortizes over the shorter term", () => {
+  // Same principal, same rate. Shorter term => higher monthly payment.
+  const long = runProjection(baseInput({ years: 10, loan_term_years: 10 }));
+  const short = runProjection(baseInput({ years: 10, loan_term_years: 5 }));
+  assert.ok(short.monthly_tl_payment > long.monthly_tl_payment,
+    `5y payment ${short.monthly_tl_payment} should exceed 10y payment ${long.monthly_tl_payment}`);
+});
+
+test("loan_term_years < years: monthly_payment_usd is zero after the loan ends", () => {
+  const r = runProjection(baseInput({ years: 10, loan_term_years: 5 }));
+  // Months 0..59 should have a payment; months 60..119 should be zero.
+  for (let m = 0; m < 60; m++) {
+    assert.ok(r.monthly_payment_usd[m] > 0, `month ${m} payment should be positive`);
+  }
+  for (let m = 60; m < 120; m++) {
+    assert.equal(r.monthly_payment_usd[m], 0, `month ${m} payment should be zero`);
+  }
+});
+
+test("loan_term_years < years: remaining loan is zero after the loan ends", () => {
+  const r = runProjection(baseInput({ years: 10, loan_term_years: 5 }));
+  // At month 60 the balance is ~0 (FP noise). For m > 60 the engine
+  // explicitly assigns 0.
+  assert.ok(Math.abs(r.remaining_loan_usd_monthly[60]) < 1e-6,
+    `remaining_loan at end of term = ${r.remaining_loan_usd_monthly[60]}, expected ~0`);
+  for (let m = 61; m <= 120; m++) {
+    assert.equal(r.remaining_loan_usd_monthly[m], 0);
+  }
+});
+
+test("loan_term_years < years: total_paid_tl reflects only the actual payments", () => {
+  const r = runProjection(baseInput({ years: 10, loan_term_years: 5 }));
+  // Borrower paid 60 monthly payments, not 120.
+  assert.ok(Math.abs(r.total_paid_tl - r.monthly_tl_payment * 60) < 1e-6);
+});
+
+test("early-payoff scenario: full-horizon series stay populated past loan-end", () => {
+  // The model must not truncate house/rent/carry series when the loan ends.
+  // Series lengths and finite values at the final index confirm a clean run.
+  const r = runProjection(baseInput({ years: 10, loan_term_years: 5 }));
+  assert.equal(r.value_of_house_usd_yearly.length, 11);
+  assert.equal(r.cumulative_rent_price_usd_yearly.length, 11);
+  assert.equal(r.cumulative_ownership_cost_usd_yearly.length, 11);
+  assert.ok(Number.isFinite(r.value_of_house_usd_yearly[10]) && r.value_of_house_usd_yearly[10] > 0);
+  // Cumulative rent strictly grows year over year (rent is always positive).
+  assert.ok(r.cumulative_rent_price_usd_yearly[10] > r.cumulative_rent_price_usd_yearly[5]);
+});

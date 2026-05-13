@@ -134,9 +134,17 @@ function projectAsset(asset, inp) {
 function runProjection(inp) {
   const nMonths = inp.years * 12;
 
+  // Loan term can be shorter than the projection horizon. After the loan
+  // is paid off the borrower stops paying (monthly payment drops to 0) but
+  // the rest of the model (house value, rent, carry, salary, assets) keeps
+  // running until the horizon. loan_term_years defaults to years for
+  // backward compatibility.
+  const loanTermYears = Math.max(1, Math.min(inp.years, inp.loan_term_years ?? inp.years));
+  const loanMonths = loanTermYears * 12;
+
   // Loan
   const loan = inp.value_of_house_tl - inp.initial_noncredit_amount_tl;
-  const monthlyTlPayment = amortizedMonthlyPayment(loan, inp.interest_rate / 100, nMonths);
+  const monthlyTlPayment = amortizedMonthlyPayment(loan, inp.interest_rate / 100, loanMonths);
   const annualTlPayment = monthlyTlPayment * 12;
 
   // Effective rates
@@ -155,20 +163,32 @@ function runProjection(inp) {
     dollarRatesMonthly = compoundSeries(inp.start_dollar_tl, dollarGrowthMonthly, nMonths);
   }
 
-  // Payment in USD
-  const annualPaymentUsd = dollarRatesAnnual.slice(1).map(r => annualTlPayment / r);
-  const monthlyPaymentUsd = dollarRatesMonthly.slice(1).map(r => monthlyTlPayment / r);
+  // Payment in USD — zero after the loan is paid off.
+  const monthlyPaymentTlArr = Array.from({ length: nMonths }, (_, m) => m < loanMonths ? monthlyTlPayment : 0);
+  const monthlyPaymentUsd = monthlyPaymentTlArr.map((p, i) => p / dollarRatesMonthly[i + 1]);
+  // Annual TL payment for year y is the sum of that year's 12 monthly payments
+  // (so the partial year when the loan ends gets a partial amount).
+  const annualPaymentUsd = Array.from({ length: inp.years }, (_, y) => {
+    let tlSum = 0;
+    for (let m = y * 12; m < (y + 1) * 12; m++) tlSum += monthlyPaymentTlArr[m];
+    return tlSum / dollarRatesAnnual[y + 1];
+  });
   const cumPaymentUsdAnnual = cumsum(annualPaymentUsd);
   const cumPaymentUsdMonthly = cumsum(monthlyPaymentUsd);
 
-  // Remaining loan balance per month (standard amortization), nominal TL
+  // Remaining loan balance per month (standard amortization), nominal TL.
+  // After loan_months no further interest or principal accrues — balance stays 0.
   const remainingLoanTlMonthly = new Array(nMonths + 1);
   remainingLoanTlMonthly[0] = loan;
   const rMonthly = inp.interest_rate / 100;
   for (let m = 1; m <= nMonths; m++) {
-    const interest = remainingLoanTlMonthly[m - 1] * rMonthly;
-    const principalPart = monthlyTlPayment - interest;
-    remainingLoanTlMonthly[m] = Math.max(0, remainingLoanTlMonthly[m - 1] - principalPart);
+    if (m <= loanMonths) {
+      const interest = remainingLoanTlMonthly[m - 1] * rMonthly;
+      const principalPart = monthlyTlPayment - interest;
+      remainingLoanTlMonthly[m] = Math.max(0, remainingLoanTlMonthly[m - 1] - principalPart);
+    } else {
+      remainingLoanTlMonthly[m] = 0;
+    }
   }
   const remainingLoanTlYearly = Array.from({ length: inp.years + 1 }, (_, y) => remainingLoanTlMonthly[y * 12]);
   const remainingLoanUsdMonthly = div(remainingLoanTlMonthly, dollarRatesMonthly);
@@ -332,7 +352,7 @@ function runProjection(inp) {
   return {
     monthly_tl_payment: monthlyTlPayment,
     annual_tl_payment: annualTlPayment,
-    total_paid_tl: monthlyTlPayment * nMonths,
+    total_paid_tl: monthlyTlPayment * loanMonths,
     loan_amount_tl: loan,
     initial_noncredit_amount_usd: initialNoncreditUsd,
     buy_transaction_cost_tl: buyTxTl,

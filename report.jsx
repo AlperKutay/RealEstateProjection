@@ -904,28 +904,26 @@ function renderInputGroupsHtml(form, result, t, lang) {
   `).join("");
 }
 
-// Per-year FX growth + TR inflation, exactly as fed to the engine. In flat
-// mode every year repeats the scalar; in yearly mode we pull from the per-year
-// array. The year-end FX comes from the engine output (so deflate-by-US and
-// rebalancing are reflected automatically).
+// Per-year FX growth + TR inflation, derived from the engine output so the
+// table always matches the chart — including extensions (when CompareView
+// extended a shorter scenario to the longer horizon) and macro overrides.
+// USD growth = dollar_rates_annual[y+1]/dollar_rates_annual[y] - 1.
+// TR inflation comes from the nominal house TL series (houseUsd × FX).
 function perYearRateTableRows(form, result) {
-  const years = form.years;
+  const fxAnnual = result && result.dollar_rates_annual;
+  if (!Array.isArray(fxAnnual) || fxAnnual.length < 2) return [];
+  const houseUsdYearly = (result && result.value_of_house_usd_yearly) || [];
+  const years = fxAnnual.length - 1;
   const rows = [];
   for (let y = 0; y < years; y++) {
-    const usd = form.dollar_growth_mode === "yearly" &&
-      Array.isArray(form.dollar_growth_per_year) &&
-      form.dollar_growth_per_year.length === years
-        ? form.dollar_growth_per_year[y]
-        : (form.dollar_growth_rate ?? 0);
-    const tr = form.turkey_inflation_mode === "yearly" &&
-      Array.isArray(form.turkey_inflation_per_year) &&
-      form.turkey_inflation_per_year.length === years
-        ? form.turkey_inflation_per_year[y]
-        : (form.turkey_inflation ?? 0);
-    const fx = result && result.dollar_rates_annual
-      ? result.dollar_rates_annual[y + 1]
-      : null;
-    rows.push({ year: y + 1, usd, tr, fx });
+    const usd = fxAnnual[y] > 0 ? (fxAnnual[y + 1] / fxAnnual[y] - 1) * 100 : 0;
+    let tr = 0;
+    if (houseUsdYearly[y] != null && houseUsdYearly[y + 1] != null && fxAnnual[y] > 0) {
+      const houseTlThis = houseUsdYearly[y] * fxAnnual[y];
+      const houseTlNext = houseUsdYearly[y + 1] * fxAnnual[y + 1];
+      if (houseTlThis > 0) tr = (houseTlNext / houseTlThis - 1) * 100;
+    }
+    rows.push({ year: y + 1, usd, tr, fx: fxAnnual[y + 1] });
   }
   return rows;
 }

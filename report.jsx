@@ -220,6 +220,52 @@ async function buildDecisionChart(result, t) {
   });
 }
 
+async function buildNetPaymentChart(result, t) {
+  const labels = Array.from(result.years_axis);
+  const netLine = result.total_credit_minus_rent_usd_yearly || [];
+  const totalLine = result.total_credit_amount_usd_annual || [];
+  const cumRent = result.cumulative_rent_price_usd_yearly || [];
+  const datasets = [
+    {
+      label: t("i_net_payment"),
+      data: netLine,
+      borderColor: REPORT_COLORS[3],
+      backgroundColor: REPORT_COLORS[3],
+      borderWidth: 2.8,
+      tension: 0.2,
+      pointRadius: 0,
+      fill: false,
+    },
+    {
+      label: t("i_total_paid"),
+      data: totalLine,
+      borderColor: REPORT_COLORS[0],
+      backgroundColor: REPORT_COLORS[0],
+      borderDash: [6, 4],
+      borderWidth: 2.2,
+      tension: 0.2,
+      pointRadius: 0,
+      fill: false,
+    },
+    {
+      label: t("f_cum_rent"),
+      data: cumRent,
+      borderColor: REPORT_COLORS[5],
+      backgroundColor: REPORT_COLORS[5],
+      borderDash: [4, 4],
+      borderWidth: 2.2,
+      tension: 0.2,
+      pointRadius: 0,
+      fill: false,
+    },
+  ];
+  return renderChartImage({
+    type: "line",
+    data: { labels, datasets },
+    options: commonChartOpts("USD", t),
+  });
+}
+
 async function buildPaymentChart(result, t) {
   const labels = Array.from(result.years_axis);
   const monthlyAnnual = result.annual_payment_usd || result.monthly_payment_usd?.filter((_, i) => i % 12 === 0);
@@ -951,9 +997,10 @@ function renderToolbar(t) {
 
 // ===== Single-scenario report HTML =====
 async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allAssetData }) {
-  const [decisionImg, rentVsImg, paymentImg, macroImg] = await Promise.all([
+  const [decisionImg, rentVsImg, netPaymentImg, paymentImg, macroImg] = await Promise.all([
     buildDecisionChart(result, t),
     buildRentVsChart(result, t),
+    buildNetPaymentChart(result, t),
     buildPaymentChart(result, t),
     buildMacroChart(result, t),
   ]);
@@ -1076,10 +1123,18 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
     </div>
   `;
 
-  // page 3: payment + macro charts + footer
+  // page 3: net-payment + monthly-payment charts (the "what does this cost me?" pair)
   const page3 = `
     <div class="page">
       ${renderHeader(t, lang, "single", scenarioName)}
+
+      <div class="chart-card">
+        <h3>${escapeHtml(t("i_net_payment"))}</h3>
+        <p class="chart-sub">${escapeHtml(tt(t, "sf_net_payment", lang === "tr"
+          ? "Toplam ödediğiniz (peşinat + taksit + giderler) eksi kiracı kalsaydınız ödeyeceğiniz kira."
+          : "Total you paid minus the rent you would have paid as a renter."))}</p>
+        ${netPaymentImg ? `<img src="${netPaymentImg}" alt="net payment chart" />` : ""}
+      </div>
 
       <div class="chart-card">
         <h3>${escapeHtml(t("view_payment"))}</h3>
@@ -1087,6 +1142,15 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
         ${paymentImg ? `<img src="${paymentImg}" alt="payment chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_payment_method"))}</p>
       </div>
+
+      <div class="page-number">4</div>
+    </div>
+  `;
+
+  // page 4: macro chart + footer
+  const page4 = `
+    <div class="page">
+      ${renderHeader(t, lang, "single", scenarioName)}
 
       <div class="chart-card">
         <h3>${escapeHtml(t("view_macro"))}</h3>
@@ -1096,7 +1160,7 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
       </div>
 
       <div class="footer">${escapeHtml(t("footer"))}</div>
-      <div class="page-number">4</div>
+      <div class="page-number">5</div>
     </div>
   `;
 
@@ -1126,6 +1190,7 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
   ${pageRates}
   ${page2}
   ${page3}
+  ${page4}
 </body>
 </html>`;
 }

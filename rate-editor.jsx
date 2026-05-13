@@ -39,6 +39,17 @@ const PATTERN_FNS = {
     );
     return rebalanceToAverage(arr, avg);
   },
+  random: (n, avg) => {
+    // Each year is sampled uniformly within ±30% of the target average,
+    // then the whole array is shifted by a constant so the arithmetic mean
+    // lands on avg exactly. The user's target rate stays intact; the
+    // year-to-year shape is genuinely random.
+    if (n <= 1) return [avg];
+    const arr = Array.from({ length: n }, () =>
+      avg + (Math.random() - 0.5) * 2 * Math.abs(avg) * 0.3
+    );
+    return rebalanceToAverage(arr, avg);
+  },
 };
 
 // Round to 0.5 to keep numbers tidy when dragging
@@ -316,6 +327,16 @@ function YearlyRateEditor({
           <button type="button" onClick={() => applyPreset("front")}>{t("re_p_front")}</button>
           <button type="button" onClick={() => applyPreset("back")}>{t("re_p_back")}</button>
           <button type="button" onClick={() => applyPreset("vshape")}>{t("re_p_v")}</button>
+          <button type="button" onClick={() => applyPreset("random")} title={t("re_p_random_title")}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "-1px", marginRight: "4px" }}>
+              <rect x="3" y="3" width="18" height="18" rx="3"/>
+              <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/>
+              <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/>
+              <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>
+              <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/>
+            </svg>
+            {t("re_p_random")}
+          </button>
         </div>
         <span className="rate-editor-hint">{t("re_hint")}</span>
       </div>

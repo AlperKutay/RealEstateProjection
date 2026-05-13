@@ -106,6 +106,8 @@ window.I18N = {
     re_p_front: "Erken artış",
     re_p_back: "Geç artış",
     re_p_v: "V şekli",
+    re_p_random: "Zar at",
+    re_p_random_title: "Yılları rastgele dağıt — hedef ortalama korunur, tıkladıkça farklı bir şekil.",
     re_hint: "Sürükle veya tıkla — yıl bazlı düzenle",
 
     f_tr_inflation: "TR enflasyonu",
@@ -426,6 +428,8 @@ window.I18N = {
     re_p_front: "Front-loaded",
     re_p_back: "Back-loaded",
     re_p_v: "V-shape",
+    re_p_random: "Random",
+    re_p_random_title: "Scatter the years randomly — the target average is preserved, click again for a different shape.",
     re_hint: "Drag or tap — edit year by year",
 
     f_tr_inflation: "TR inflation",

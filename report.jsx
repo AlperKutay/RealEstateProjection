@@ -818,7 +818,15 @@ function inputRows(form, result, t, lang) {
     [t("f_rent"), `${fmtTLFull_R(form.initial_monthly_rent_tl)}${perMonth}`],
   ];
   if (form.start_salary_base > 0) {
-    life.push([t("f_salary_amount"), `${fmtTLFull_R(form.start_salary_base)} ${form.salary_currency || ""}`]);
+    // Salary inherits whatever currency the user picked — don't append "₺"
+    // when the figure is actually USD or EUR.
+    const cur = form.salary_currency || "TL";
+    const num = Math.round(form.start_salary_base).toLocaleString("tr-TR");
+    const salaryStr = cur === "TL" ? `${num} ₺`
+      : cur === "USD" ? `${num} $`
+      : cur === "EUR" ? `${num} €`
+      : `${num} ${cur}`;
+    life.push([t("f_salary_amount"), salaryStr]);
     life.push([t("f_salary_growth"), `${(form.salary_growth ?? 0).toFixed(2)} %`]);
   }
   groups.push({ title: tt(t, "rpt_group_life", lang === "tr" ? "Kira & Maaş" : "Rent & Salary"), rows: life });

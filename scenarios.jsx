@@ -601,13 +601,16 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   // that the residual jitter from random mode is identical across scenarios
   // — kept silent in the UI; no dice rolling, no fixed-seed nonsense.
   const COMPARE_SEED = 42;
-  const computed = useMemo_S(() => {
+  // Apply the macro override up-front so both the on-screen compute AND the
+  // report builder consume the same adapted scenarios.
+  const adaptedScns = useMemo_S(() => {
     const base = macroBaseId ? activeScns.find((x) => x.id === macroBaseId) : null;
-    return activeScns.map((s) => {
-      const adapted = base && base.id !== s.id ? applyMacroOverride(s, base) : s;
-      return computeResult(adapted, allAssetData, maxYears, COMPARE_SEED);
-    });
-  }, [activeScns, allAssetData, maxYears, macroBaseId]);
+    return activeScns.map((s) => (base && base.id !== s.id ? applyMacroOverride(s, base) : s));
+  }, [activeScns, macroBaseId]);
+  const computed = useMemo_S(
+    () => adaptedScns.map((s) => computeResult(s, allAssetData, maxYears, COMPARE_SEED)),
+    [adaptedScns, allAssetData, maxYears]
+  );
   const results = useMemo_S(() => computed.map((c) => c.result), [computed]);
   const originalYearsByIdx = useMemo_S(
     () => computed.map((c) => c.originalYears),
@@ -695,7 +698,7 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
                 if (!window.generateCompareReport) return;
                 setRptBusy(true);
                 try {
-                  await window.generateCompareReport({ scenarios: activeScns, allAssetData, t, lang, chartKeys });
+                  await window.generateCompareReport({ scenarios: adaptedScns, allAssetData, t, lang, chartKeys });
                 } finally {
                   setTimeout(() => setRptBusy(false), 600);
                 }
@@ -711,7 +714,7 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
                 if (!window.generateCompareReport) return;
                 setRptBusy(true);
                 try {
-                  await window.generateCompareReport({ scenarios: activeScns, allAssetData, t, lang });
+                  await window.generateCompareReport({ scenarios: adaptedScns, allAssetData, t, lang });
                 } finally {
                   setTimeout(() => setRptBusy(false), 600);
                 }

@@ -565,6 +565,53 @@ const REPORT_CSS = `
   .assumptions .row span:first-child { color: ${REPORT_INK_MUTE}; }
   .assumptions .row span:last-child { font-family: Geist Mono, monospace; font-weight: 500; }
 
+  /* Grouped inputs (single report) */
+  .assumptions-grouped {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    border: 0;
+  }
+  .assumptions-grouped .input-group {
+    border: 1px solid ${REPORT_BORDER};
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .assumptions-grouped .input-group-title {
+    background: #f4ede2;
+    padding: 6px 12px;
+    font-size: 8.5pt;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: ${REPORT_INK_MUTE};
+    text-transform: uppercase;
+  }
+  .assumptions-grouped .row { border-right: 0; padding: 7px 12px; }
+  .assumptions-grouped .row:last-child { border-bottom: none; }
+
+  /* Side-by-side inputs table (compare report) */
+  table.inputs-table {
+    width: 100%; border-collapse: collapse; font-size: 9.5pt;
+    border: 1px solid ${REPORT_BORDER}; border-radius: 10px; overflow: hidden;
+    margin-bottom: 16px;
+  }
+  table.inputs-table th, table.inputs-table td {
+    border-bottom: 1px solid ${REPORT_BORDER};
+    padding: 7px 10px; text-align: left; vertical-align: top;
+  }
+  table.inputs-table thead th {
+    background: #f4ede2; font-size: 9pt; font-weight: 600;
+    color: ${REPORT_INK};
+  }
+  table.inputs-table th.group-row {
+    background: #faf5ec; color: ${REPORT_INK_MUTE};
+    font-size: 8.5pt; letter-spacing: 0.06em; text-transform: uppercase;
+    font-weight: 600;
+  }
+  table.inputs-table td.metric { color: ${REPORT_INK_MUTE}; }
+  table.inputs-table td.val { font-family: Geist Mono, monospace; font-weight: 500; }
+  table.inputs-table tr:last-child td { border-bottom: none; }
+
   /* Compare table */
   table.cmp-table {
     width: 100%; border-collapse: collapse;
@@ -689,6 +736,71 @@ const REPORT_CSS = `
     .toolbar { display: none !important; }
   }
 `;
+
+// ===== Inputs helpers — surface every form value explicitly so the printed
+// report can stand alone =====
+
+function inputRows(form, result, t, lang) {
+  const perMonth = t("rpt_per_month") || (lang === "tr" ? "/ay" : "/mo");
+  const perYear = t("rpt_per_year") || (lang === "tr" ? "/yıl" : "/yr");
+  const fxStart = (form.start_dollar_tl ?? 0).toFixed(2) + " ₺";
+  const loanAmount = result && result.loan_amount_tl != null
+    ? result.loan_amount_tl
+    : (form.value_of_house_tl - form.initial_noncredit_amount_tl);
+  const groups = [];
+
+  const loan = [
+    [t("f_years"), `${form.years} ${t("f_years_unit")}`],
+    [t("f_loan_term_years"), `${form.loan_term_years ?? form.years} ${t("f_years_unit")}`],
+    [t("f_interest"), `${(form.interest_rate ?? 0).toFixed(2)} %`],
+    [t("f_value"), fmtTLFull_R(form.value_of_house_tl)],
+    [t("f_down"), fmtTLFull_R(form.initial_noncredit_amount_tl)],
+    [t("f_loan_amount"), fmtTLFull_R(loanAmount)],
+  ];
+  groups.push({ title: t("rpt_group_loan"), rows: loan });
+
+  const macro = [
+    [t("f_start_dollar"), fxStart],
+    [t("f_dollar_growth") + (form.dollar_growth_mode === "yearly" ? " (yıl yıl)" : ""),
+      `${(form.dollar_growth_rate ?? 0).toFixed(2)} %`],
+    [t("f_tr_inflation") + (form.turkey_inflation_mode === "yearly" ? " (yıl yıl)" : ""),
+      `${(form.turkey_inflation ?? 0).toFixed(2)} %`],
+    [t("f_us_inflation"), `${(form.usa_inflation ?? 0).toFixed(2)} %`],
+  ];
+  groups.push({ title: t("rpt_group_macro"), rows: macro });
+
+  const life = [
+    [t("f_rent"), `${fmtTLFull_R(form.initial_monthly_rent_tl)}${perMonth}`],
+  ];
+  if (form.start_salary_base > 0) {
+    life.push([t("f_salary_amount"), `${fmtTLFull_R(form.start_salary_base)} ${form.salary_currency || ""}`]);
+    life.push([t("f_salary_growth"), `${(form.salary_growth ?? 0).toFixed(2)} %`]);
+  }
+  groups.push({ title: t("rpt_group_life"), rows: life });
+
+  const costs = [];
+  if (form.annual_property_tax_rate > 0) costs.push([t("f_annual_property_tax_rate"), `${form.annual_property_tax_rate} %`]);
+  if (form.monthly_hoa_tl > 0) costs.push([t("f_monthly_hoa_tl"), `${fmtTLFull_R(form.monthly_hoa_tl)}${perMonth}`]);
+  if (form.annual_dask_tl > 0) costs.push([t("f_annual_dask_tl"), `${fmtTLFull_R(form.annual_dask_tl)}${perYear}`]);
+  if (form.annual_maintenance_rate > 0) costs.push([t("f_annual_maintenance_rate"), `${form.annual_maintenance_rate} %`]);
+  if (form.transaction_cost_buy_pct > 0) costs.push([t("f_transaction_cost_buy_pct"), `${form.transaction_cost_buy_pct} %`]);
+  if (form.transaction_cost_sell_pct > 0) costs.push([t("f_transaction_cost_sell_pct"), `${form.transaction_cost_sell_pct} %`]);
+  if (costs.length) groups.push({ title: t("rpt_group_costs"), rows: costs });
+
+  return groups;
+}
+
+function renderInputGroupsHtml(form, result, t, lang) {
+  const groups = inputRows(form, result, t, lang);
+  return groups.map((g) => `
+    <div class="input-group">
+      <div class="input-group-title">${escapeHtml(g.title)}</div>
+      ${g.rows.map(([k, v]) => `
+        <div class="row"><span>${escapeHtml(k)}</span><span>${escapeHtml(v)}</span></div>
+      `).join("")}
+    </div>
+  `).join("");
+}
 
 // ===== Page-wrapping helpers =====
 function renderHeader(t, lang, kind, scenarioName) {
@@ -817,17 +929,13 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
       </div>
 
       <h2 class="section-title">${escapeHtml(t("rpt_assumptions"))}<small>${escapeHtml(t("rpt_assumptions_sub"))}</small></h2>
-      <div class="assumptions">
-        <div class="row"><span>${escapeHtml(t("f_years"))}</span><span>${form.years} ${escapeHtml(t("f_years_unit"))}</span></div>
-        <div class="row"><span>${escapeHtml(t("f_interest"))}</span><span>${form.interest_rate.toFixed(2)} %</span></div>
-        <div class="row"><span>${escapeHtml(t("f_value"))}</span><span>${fmtTLFull_R(form.value_of_house_tl)}</span></div>
-        <div class="row"><span>${escapeHtml(t("f_down"))}</span><span>${fmtTLFull_R(form.initial_noncredit_amount_tl)}</span></div>
-        <div class="row"><span>${escapeHtml(t("f_loan_amount"))}</span><span>${fmtTLFull_R(result.loan_amount_tl)}</span></div>
-        <div class="row"><span>USD/TL ${lang === "tr" ? "(başlangıç)" : "(start)"}</span><span>${fxStart.toFixed(2)} ₺</span></div>
-        <div class="row"><span>USD/TL ${lang === "tr" ? "(Y" + form.years + ")" : "(Y" + form.years + ")"}</span><span>${fxEnd.toFixed(2)} ₺</span></div>
-        <div class="row"><span>${escapeHtml(t("f_dollar_growth"))}</span><span>${usdGrowth} %</span></div>
-        <div class="row"><span>${escapeHtml(t("f_tr_inflation"))}</span><span>${trInf} %</span></div>
-        <div class="row"><span>${escapeHtml(t("rpt_compared_assets"))}</span><span>${escapeHtml(assetLine)}</span></div>
+      <div class="assumptions assumptions-grouped">
+        ${renderInputGroupsHtml(form, result, t, lang)}
+        <div class="input-group">
+          <div class="input-group-title">USD/TL · ${escapeHtml(t("rpt_compared_assets"))}</div>
+          <div class="row"><span>USD/TL ${lang === "tr" ? "(Y" + form.years + ")" : "(Y" + form.years + ")"}</span><span>${fxEnd.toFixed(2)} ₺</span></div>
+          <div class="row"><span>${escapeHtml(t("rpt_compared_assets"))}</span><span>${escapeHtml(assetLine)}</span></div>
+        </div>
       </div>
       <div class="page-number">1</div>
     </div>
@@ -997,6 +1105,51 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
     `;
   }).join("");
 
+  // Side-by-side INPUTS table — every form parameter across scenarios.
+  // Union of group structures across scenarios so the table covers all inputs,
+  // even if one scenario doesn't set a particular cost field.
+  const perScenarioGroups = scenarios.map((s) => inputRows(s.form, results[scenarios.indexOf(s)], t, lang));
+  const groupOrder = [];
+  const groupRows = {}; // title -> Set of metric keys
+  for (const groups of perScenarioGroups) {
+    for (const g of groups) {
+      if (!groupRows[g.title]) { groupOrder.push(g.title); groupRows[g.title] = new Set(); }
+      for (const [k] of g.rows) groupRows[g.title].add(k);
+    }
+  }
+  const inputsTableHtml = `
+    <table class="inputs-table">
+      <thead>
+        <tr>
+          <th style="width: 22%">${escapeHtml(t("rpt_assumptions"))}</th>
+          ${scenarios.map((s) => `
+            <th>
+              <div class="cmp-header-cell">
+                <span class="cmp-header-dot" style="background:${hueToRgb(s.hue)}"></span>
+                ${escapeHtml(s.name)}
+              </div>
+            </th>
+          `).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${groupOrder.map((gtitle) => {
+          const metrics = Array.from(groupRows[gtitle]);
+          const groupHeaderRow = `<tr><th class="group-row" colspan="${scenarios.length + 1}">${escapeHtml(gtitle)}</th></tr>`;
+          const metricRows = metrics.map((mkey) => {
+            const cells = scenarios.map((s, i) => {
+              const grp = perScenarioGroups[i].find((g) => g.title === gtitle);
+              const row = grp ? grp.rows.find(([k]) => k === mkey) : null;
+              return `<td class="val">${escapeHtml(row ? row[1] : "—")}</td>`;
+            }).join("");
+            return `<tr><td class="metric">${escapeHtml(mkey)}</td>${cells}</tr>`;
+          }).join("");
+          return groupHeaderRow + metricRows;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+
   // metric table
   const tableHtml = `
     <table class="cmp-table">
@@ -1046,6 +1199,9 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
       <div class="scn-legend">
         ${legendHtml}
       </div>
+
+      <h2 class="section-title">${escapeHtml(t("rpt_assumptions"))}<small>${escapeHtml(t("rpt_inputs_table"))}</small></h2>
+      ${inputsTableHtml}
 
       <h2 class="section-title">${escapeHtml(t("rpt_compare_metrics"))}<small>${escapeHtml(t("scn_metrics_sub"))}</small></h2>
       ${tableHtml}

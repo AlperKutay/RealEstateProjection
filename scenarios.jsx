@@ -80,6 +80,33 @@ function withSeededRandom(seed, fn) {
   try { return fn(); } finally { Math.random = orig; }
 }
 
+// Apply one scenario's macro fields (FX path + inflation + start rate) on
+// top of another scenario. Useful in CompareView when the user wants to
+// hold the economic backdrop constant and only vary loan terms or other
+// scenario-specific knobs.
+const MACRO_FIELDS = [
+  "start_dollar_tl",
+  "dollar_growth_rate",
+  "dollar_growth_mode",
+  "dollar_growth_per_year",
+  "dollar_growth_lock_avg",
+  "turkey_inflation",
+  "turkey_inflation_mode",
+  "turkey_inflation_per_year",
+  "turkey_inflation_lock_avg",
+  "usa_inflation",
+  "deflate_dollar_by_us_inflation",
+  "generate_random",
+];
+function applyMacroOverride(scn, base) {
+  if (!base || base.id === scn.id) return scn;
+  const overrides = {};
+  for (const k of MACRO_FIELDS) {
+    if (k in base.form) overrides[k] = base.form[k];
+  }
+  return { ...scn, form: { ...scn.form, ...overrides } };
+}
+
 // Extend a per-year override array to a longer horizon by repeating the
 // array's last value (so the trend the user drew keeps going). Falls back
 // to the supplied scalar when the array is empty.
@@ -531,35 +558,23 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
     () => activeScns.reduce((m, s) => Math.max(m, s.form.years), 0),
     [activeScns]
   );
-  // Random mode picker for the compare run. Three options:
-  //   "stable"      — every scenario shares a fixed seed (42). Stable
-  //                   across page refreshes; useful for didactic compare
-  //                   screenshots.
-  //   "synced"      — every scenario shares a single fresh seed picked on
-  //                   mount; re-roll button generates a new shared seed.
-  //   "independent" — no shared seed; each scenario draws its own random
-  //                   path (each Hesapla shows fresh shapes for each).
-  const [randomMode, setRandomMode] = useState_S("stable");
-  const [syncedSeed, setSyncedSeed] = useState_S(42);
-  const anyRandom = activeScns.some((s) => s.form && s.form.generate_random);
-  const rerollSeed = () => {
-    setRandomMode("synced");
-    setSyncedSeed(Math.floor(Math.random() * 1e9));
-  };
-  const setMode = (m) => {
-    setRandomMode(m);
-    if (m === "stable") setSyncedSeed(42);
-    if (m === "synced") setSyncedSeed(Math.floor(Math.random() * 1e9));
-  };
-  const seedForScenario = (i) => {
-    if (randomMode === "independent") return null;     // engine uses native Math.random
-    if (randomMode === "stable") return 42;
-    return syncedSeed;
-  };
-  const computed = useMemo_S(
-    () => activeScns.map((s, i) => computeResult(s, allAssetData, maxYears, seedForScenario(i))),
-    [activeScns, allAssetData, maxYears, randomMode, syncedSeed]
-  );
+  // Macro base: when set to a scenario id, every other scenario in the
+  // compare run adopts that scenario's FX / inflation / start-dollar values
+  // before running. Lets the user compare e.g. 5-year vs 10-year mortgages
+  // under the same economic backdrop without re-entering the macro twice.
+  // null = each scenario uses its own macro (default).
+  const [macroBaseId, setMacroBaseId] = useState_S(null);
+  // Shared random seed (used when any scenario has generate_random on) so
+  // that the residual jitter from random mode is identical across scenarios
+  // — kept silent in the UI; no dice rolling, no fixed-seed nonsense.
+  const COMPARE_SEED = 42;
+  const computed = useMemo_S(() => {
+    const base = macroBaseId ? activeScns.find((x) => x.id === macroBaseId) : null;
+    return activeScns.map((s) => {
+      const adapted = base && base.id !== s.id ? applyMacroOverride(s, base) : s;
+      return computeResult(adapted, allAssetData, maxYears, COMPARE_SEED);
+    });
+  }, [activeScns, allAssetData, maxYears, macroBaseId]);
   const results = useMemo_S(() => computed.map((c) => c.result), [computed]);
   const originalYearsByIdx = useMemo_S(
     () => computed.map((c) => c.originalYears),
@@ -606,42 +621,19 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
           <p className="compare-sub">{t("scn_compare_sub").replace("{n}", String(scenarios.length))}</p>
         </div>
         <div className="cmp-head-actions">
-          {anyRandom ? (
-            <>
-              <div className="cmp-random-mode" role="radiogroup" aria-label={t("cmp_random_mode")}>
-                <button
-                  className={randomMode === "stable" ? "active" : ""}
-                  onClick={() => setMode("stable")}
-                  title={t("cmp_mode_stable_title")}
-                >{t("cmp_mode_stable")}</button>
-                <button
-                  className={randomMode === "synced" ? "active" : ""}
-                  onClick={() => setMode("synced")}
-                  title={t("cmp_mode_synced_title")}
-                >{t("cmp_mode_synced")}</button>
-                <button
-                  className={randomMode === "independent" ? "active" : ""}
-                  onClick={() => setMode("independent")}
-                  title={t("cmp_mode_independent_title")}
-                >{t("cmp_mode_independent")}</button>
-              </div>
-              <button
-                className="btn btn-ghost"
-                onClick={rerollSeed}
-                disabled={randomMode === "independent"}
-                title={t("cmp_reroll_title")}
+          {activeScns.length >= 2 ? (
+            <label className="cmp-macro-picker" title={t("cmp_macro_base_title")}>
+              <span className="cmp-macro-label">{t("cmp_macro_base")}</span>
+              <select
+                value={macroBaseId || ""}
+                onChange={(e) => setMacroBaseId(e.target.value || null)}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="3"/>
-                  <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/>
-                  <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/>
-                  <circle cx="12" cy="12" r="1.2" fill="currentColor"/>
-                  <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>
-                  <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/>
-                </svg>
-                {t("cmp_reroll")}
-              </button>
-            </>
+                <option value="">{t("cmp_macro_base_own")}</option>
+                {activeScns.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </label>
           ) : null}
           <button className="btn btn-ghost" onClick={saveCompare} disabled={saving} title={t("cmp_save_title")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

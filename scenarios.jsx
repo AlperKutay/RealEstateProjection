@@ -421,6 +421,7 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   const [view, setView] = useState_S("decision");
   const [hidden, setHidden] = useState_S(new Set()); // ids hidden from comparison
   const [saving, setSaving] = useState_S(false);
+  const [rptBusy, setRptBusy] = useState_S(false);
   const compareRef = useRef_S(null);
 
   const saveCompare = async () => {
@@ -520,6 +521,22 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
             </svg>
             {saving ? t("cmp_save_saving") : t("cmp_save")}
           </button>
+          {window.ReportButton ? (
+            <window.ReportButton
+              onClick={async () => {
+                if (!window.generateCompareReport) return;
+                setRptBusy(true);
+                try {
+                  await window.generateCompareReport({ scenarios: activeScns, allAssetData, t, lang });
+                } finally {
+                  setTimeout(() => setRptBusy(false), 600);
+                }
+              }}
+              label={rptBusy ? t("rpt_busy") : t("rpt_button_compare")}
+              busy={rptBusy}
+              variant="primary"
+            />
+          ) : null}
           <button className="btn btn-ghost" onClick={onClose}>
             ← {t("scn_back_to_results")}
           </button>

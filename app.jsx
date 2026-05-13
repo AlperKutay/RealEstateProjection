@@ -40,6 +40,7 @@ function App() {
   const [activeScnId, setActiveScnId] = useState_A(null); // id of currently loaded scenario
   const [draftDirty, setDraftDirty] = useState_A(false);
   const [toast, setToast] = useState_A("");
+  const [reportBusy, setReportBusy] = useState_A(false);
 
   // tweaks (useTweaks is provided by tweaks-panel.jsx which loads before this file)
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
@@ -216,6 +217,30 @@ function App() {
     a.click();
   };
 
+  const activeScenarioName = useMemo_A(() => {
+    if (activeScnId == null) return null;
+    const s = scenarios.find((x) => x.id === activeScnId);
+    return s ? s.name : null;
+  }, [activeScnId, scenarios]);
+
+  const handleGenerateSingleReport = async () => {
+    if (!result || !window.generateSingleReport) return;
+    setReportBusy(true);
+    try {
+      await window.generateSingleReport({
+        result,
+        form,
+        lang,
+        t,
+        scenarioName: activeScenarioName,
+        allAssetData,
+      });
+    } finally {
+      // small grace so user sees the spinner briefly even if pop-up opens fast
+      setTimeout(() => setReportBusy(false), 600);
+    }
+  };
+
   // ---------- UI ----------
   const hasSalary = form.start_salary_base > 0;
 
@@ -380,6 +405,14 @@ function App() {
               </svg>
               {t("scn_save_current")}
             </button>
+            {window.ReportButton ? (
+              <window.ReportButton
+                onClick={handleGenerateSingleReport}
+                label={reportBusy ? t("rpt_busy") : t("rpt_button")}
+                busy={reportBusy}
+                variant={scenarios.length >= 1 ? "ghost" : "primary"}
+              />
+            ) : null}
             {scenarios.length >= 1 ? (
               <button className="btn btn-primary" onClick={() => setView("compare")}>
                 {t("scn_compare")}

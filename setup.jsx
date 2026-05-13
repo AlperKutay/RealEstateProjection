@@ -144,9 +144,16 @@ function RateDistributionSection({
 }
 window.RateDistributionSection = RateDistributionSection;
 
-function ToggleCard({ on, onChange, title, sub }) {
+function ToggleCard({ on, onChange, title, sub, disabled }) {
+  const cls = `toggle ${on ? "on" : ""} ${disabled ? "disabled" : ""}`.trim();
   return (
-    <button type="button" className={`toggle ${on ? "on" : ""}`} onClick={() => onChange(!on)}>
+    <button
+      type="button"
+      className={cls}
+      onClick={() => { if (!disabled) onChange(!on); }}
+      disabled={!!disabled}
+      aria-disabled={!!disabled}
+    >
       <span className="toggle-check">
         {on ? (
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -518,10 +525,13 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
               title={t("opt_real_usd")} sub={t("opt_real_usd_sub")} />
             <ToggleCard on={form.generate_random} onChange={(v) => setF({ generate_random: v })}
               title={t("opt_random")} sub={t("opt_random_sub")} />
-            {form.generate_random ? (
-              <ToggleCard on={form.monte_carlo !== false} onChange={(v) => setF({ monte_carlo: v })}
-                title={t("opt_monte_carlo")} sub={t("opt_monte_carlo_sub")} />
-            ) : null}
+            <ToggleCard
+              on={form.generate_random && form.monte_carlo !== false}
+              onChange={(v) => setF({ monte_carlo: v })}
+              disabled={!form.generate_random}
+              title={t("opt_monte_carlo")}
+              sub={form.generate_random ? t("opt_monte_carlo_sub") : t("opt_monte_carlo_requires")}
+            />
             <ToggleCard on={form.project_initial_money_with_asset} onChange={(v) => setF({ project_initial_money_with_asset: v })}
               title={t("opt_invest_down")} sub={t("opt_invest_down_sub")} />
           </div>

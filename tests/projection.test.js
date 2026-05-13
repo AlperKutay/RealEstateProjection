@@ -475,6 +475,58 @@ test("variable rate + loan_term_years: amortization respects shorter term", () =
   assert.ok(Math.abs(r.remaining_loan_usd_monthly[60]) < 1e-6);
 });
 
+// --- Phase 2.4: Monte Carlo envelopes -------------------------------
+
+test("Monte Carlo: envelopes are monotone (p10 ≤ p50 ≤ p90 at every period)", () => {
+  withSeed(2026, () => {
+    const r = runMonteCarlo(baseInput({ generate_random: true }), 80);
+    assert.ok(r.envelopes, "envelopes missing");
+    for (const [key, env] of Object.entries(r.envelopes)) {
+      for (let i = 0; i < env.p50.length; i++) {
+        assert.ok(env.p10[i] <= env.p50[i] + 1e-9, `${key}[${i}] p10 ${env.p10[i]} > p50 ${env.p50[i]}`);
+        assert.ok(env.p50[i] <= env.p90[i] + 1e-9, `${key}[${i}] p50 ${env.p50[i]} > p90 ${env.p90[i]}`);
+      }
+    }
+  });
+});
+
+test("Monte Carlo: median FX path matches deterministic compound at the horizon", () => {
+  // Geometric rescale guarantees every run lands at (1+target)^N exactly,
+  // so all trials share the same final FX — p10/p50/p90 should collapse
+  // to one number at the last index.
+  withSeed(7, () => {
+    const r = runMonteCarlo(baseInput({ generate_random: true }), 50);
+    const last = r.envelopes.dollar_rates_annual;
+    const expected = 45 * Math.pow(1 + 35 / 100, 10);
+    assert.ok(Math.abs(last.p50.at(-1) - expected) / expected < 1e-9);
+    // p10 and p90 also exact at the horizon (geometric rescale lands every run)
+    assert.ok(Math.abs(last.p10.at(-1) - expected) / expected < 1e-9);
+    assert.ok(Math.abs(last.p90.at(-1) - expected) / expected < 1e-9);
+  });
+});
+
+test("Monte Carlo: envelope spread shows up mid-term (intermediate volatility)", () => {
+  withSeed(99, () => {
+    const r = runMonteCarlo(baseInput({ generate_random: true }), 80);
+    const mid = Math.floor(r.envelopes.dollar_rates_monthly.p50.length / 2);
+    const e = r.envelopes.dollar_rates_monthly;
+    // p90 − p10 should be > 0 at mid horizon: random paths visibly fan out.
+    assert.ok(e.p90[mid] - e.p10[mid] > 0,
+      `expected positive spread at month ${mid}, got p10=${e.p10[mid]} p90=${e.p90[mid]}`);
+  });
+});
+
+test("Monte Carlo: result still carries the standard fields (back-compat shape)", () => {
+  withSeed(1, () => {
+    const r = runMonteCarlo(baseInput({ generate_random: true }), 30);
+    assert.ok(typeof r.monthly_tl_payment === "number");
+    assert.equal(r.years_axis.length, 11);
+    assert.equal(r.months_axis.length, 121);
+    assert.ok(Array.isArray(r.dollar_rates_annual));
+    assert.equal(r.monte_carlo_trials, 30);
+  });
+});
+
 test("early-payoff scenario: full-horizon series stay populated past loan-end", () => {
   // The model must not truncate house/rent/carry series when the loan ends.
   // Series lengths and finite values at the final index confirm a clean run.

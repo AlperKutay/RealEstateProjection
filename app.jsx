@@ -160,7 +160,9 @@ function App() {
             };
           }
         }
-        const res = runProjection(input);
+        const res = input.generate_random && typeof runMonteCarlo === "function"
+          ? runMonteCarlo(input)
+          : runProjection(input);
         setResult(res);
         setView("results");
       } catch (e) { console.warn(e); }
@@ -188,7 +190,9 @@ function App() {
           };
         }
       }
-      const res = runProjection(input);
+      const res = input.generate_random && typeof runMonteCarlo === "function"
+        ? runMonteCarlo(input)
+        : runProjection(input);
       setResult(res);
       setView("results");
       // scroll to top of results

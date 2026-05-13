@@ -511,3 +511,72 @@ function runProjection(inp) {
     asset_projections: assetProjections,
   };
 }
+
+// ----- Monte Carlo wrapper -----------------------------------------
+// When generate_random is on, instead of giving the user a single noisy
+// path we run the projection N times and produce a P10/P50/P90 envelope
+// per period for the series the UI plots. Engine output is the same shape
+// as runProjection (so back-compat callers still work) plus a new
+// `envelopes` field keyed by series name.
+
+const MC_SERIES_KEYS = [
+  "dollar_rates_annual", "dollar_rates_monthly",
+  "value_of_house_usd_yearly", "value_of_house_usd_monthly",
+  "rent_price_usd_yearly", "rent_price_usd_monthly",
+  "cumulative_rent_price_usd_yearly", "cumulative_rent_price_usd_monthly",
+  "total_credit_amount_usd_annual", "total_credit_amount_usd_monthly",
+  "house_plus_rent_yearly", "house_plus_rent_monthly",
+  "total_credit_minus_rent_usd_yearly", "total_credit_minus_rent_usd_monthly",
+  "annual_payment_usd", "monthly_payment_usd",
+  "net_buy_position_usd_yearly", "net_buy_position_usd_monthly",
+  "remaining_loan_usd_yearly", "remaining_loan_usd_monthly",
+  "payment_salary_ratio_yearly", "payment_salary_ratio_monthly",
+  "payment_minus_rent_over_salary_yearly", "payment_minus_rent_over_salary_monthly",
+];
+
+function pickPercentile(sorted, pct) {
+  // sorted[] is ascending; pct in (0, 1). Linear pick — good enough.
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor(sorted.length * pct)));
+  return sorted[idx];
+}
+
+function runMonteCarlo(inp, n = 400) {
+  const trials = Math.max(2, n | 0);
+  // Force random mode so each call samples a different path even if the
+  // caller forgot to flip the flag.
+  const monteInput = { ...inp, generate_random: true };
+  const runs = new Array(trials);
+  for (let i = 0; i < trials; i++) runs[i] = runProjection(monteInput);
+
+  // Representative run = the one whose final FX is the median across trials.
+  const finalFx = runs.map((r) => r.dollar_rates_annual.at(-1));
+  const sortIdx = finalFx
+    .map((v, i) => [v, i])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, i]) => i);
+  const medianRun = runs[sortIdx[Math.floor(trials / 2)]];
+
+  const envelopes = {};
+  for (const key of MC_SERIES_KEYS) {
+    const sample = medianRun[key];
+    if (!Array.isArray(sample) || !sample.length) continue;
+    const len = sample.length;
+    const p10 = new Array(len);
+    const p50 = new Array(len);
+    const p90 = new Array(len);
+    const column = new Array(trials);
+    for (let i = 0; i < len; i++) {
+      for (let j = 0; j < trials; j++) {
+        const arr = runs[j][key];
+        column[j] = arr ? arr[i] : 0;
+      }
+      column.sort((a, b) => a - b);
+      p10[i] = pickPercentile(column, 0.10);
+      p50[i] = pickPercentile(column, 0.50);
+      p90[i] = pickPercentile(column, 0.90);
+    }
+    envelopes[key] = { p10, p50, p90 };
+  }
+
+  return { ...medianRun, envelopes, monte_carlo_trials: trials };
+}

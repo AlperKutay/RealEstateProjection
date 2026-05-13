@@ -338,12 +338,73 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
     const datasets = [];
     let colorIdx = 0;
 
+    const envelopes = result.envelopes;
     for (const s of def.series) {
       const fields = SERIES_FIELDS[s.key];
       if (!fields) continue;
-      const arr = useMonths ? result[fields[1]] : result[fields[0]];
+      const fieldName = useMonths ? fields[1] : fields[0];
+      const arr = result[fieldName];
       if (!arr) continue;
       const offset = s.offset || 0;
+      const color = CHART_COLORS[s.color != null ? s.color : colorIdx++];
+      const env = envelopes && envelopes[fieldName];
+
+      // Monte Carlo mode for this series — draw a filled p10–p90 band plus
+      // the p50 median line instead of a single deterministic curve.
+      if (env) {
+        const projectArr = (raw) => {
+          const data = new Array(labels.length);
+          for (let i = 0; i < labels.length; i++) {
+            const idx = i - offset;
+            let v = idx >= 0 && idx < raw.length ? raw[idx] : null;
+            if (v != null && s.isRatio) v = v * 100;
+            data[i] = v;
+          }
+          return data;
+        };
+        const p10Data = projectArr(env.p10);
+        const p90Data = projectArr(env.p90);
+        const p50Data = projectArr(env.p50);
+        // Push lower line first so the upper line can fill back to it.
+        datasets.push({
+          label: t(s.labelKey) + " — P10",
+          data: p10Data,
+          borderColor: color,
+          backgroundColor: color,
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.2,
+          fill: false,
+          showLine: false,
+        });
+        datasets.push({
+          label: t(s.labelKey) + " — P90",
+          data: p90Data,
+          borderColor: color,
+          backgroundColor: color + "22",
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.2,
+          fill: "-1", // fill back to the previous dataset (= P10)
+          showLine: false,
+        });
+        datasets.push({
+          label: t(s.labelKey),
+          data: p50Data,
+          borderColor: color,
+          backgroundColor: color,
+          borderDash: s.dash ? [6, 4] : [],
+          borderWidth: 2.2,
+          tension: 0.2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+        });
+        continue;
+      }
+
       const data = new Array(labels.length);
       for (let i = 0; i < labels.length; i++) {
         const idx = i - offset;
@@ -351,7 +412,6 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
         if (v != null && s.isRatio) v = v * 100;
         data[i] = v;
       }
-      const color = CHART_COLORS[s.color != null ? s.color : colorIdx++];
       datasets.push({
         label: t(s.labelKey),
         data,
@@ -414,6 +474,9 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
               usePointStyle: true,
               pointStyle: "rectRounded",
               font: { family: "Geist, system-ui", size: 12 },
+              // Hide the P10/P90 helper datasets — only the median line
+              // (and any deterministic series) shows up in the legend.
+              filter: (item) => !/ — P(10|90)$/.test(item.text || ""),
             },
           },
           tooltip: {
@@ -426,6 +489,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
             cornerRadius: 8,
             titleFont: { family: "Geist, system-ui", size: 12, weight: "600" },
             bodyFont: { family: "Geist Mono, monospace", size: 12 },
+            filter: (item) => !/ — P(10|90)$/.test(item.dataset.label || ""),
             callbacks: {
               title: (items) => {
                 if (!items.length) return "";

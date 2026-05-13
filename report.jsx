@@ -1226,6 +1226,10 @@ const RPT_COMPARE_METRICS = [
     get: (r) => r.total_paid_tl },
   { key: "real_cost_usd", label: "i_real_cost", fmt: "usd", dir: "lower",
     get: (r) => r.total_credit_amount_usd_annual.at(-1) },
+  { key: "net_payment_usd", label: "i_net_payment", fmt: "usd", dir: "lower",
+    get: (r) => r.total_credit_minus_rent_usd_yearly
+      ? r.total_credit_minus_rent_usd_yearly.at(-1)
+      : null },
   { key: "house_final_usd", label: "cmp_house_final", fmt: "usd", dir: "higher",
     get: (r) => r.value_of_house_usd_yearly.at(-1) },
   { key: "house_plus_rent", label: "view_rent_vs", fmt: "usd", dir: "higher",
@@ -1233,12 +1237,9 @@ const RPT_COMPARE_METRICS = [
   { key: "house_appreciation", label: "i_house_appreciation", fmt: "pct", dir: "higher",
     get: (r) => (r.value_of_house_usd_yearly.at(-1) / r.value_of_house_usd_yearly[0] - 1) },
   { key: "breakeven", label: "i_breakeven", fmt: "year", dir: "lower",
-    get: (r) => {
-      const a = r.house_plus_rent_yearly, b = r.total_credit_amount_usd_annual;
-      const n = Math.min(a.length, b.length);
-      for (let i = 0; i < n; i++) if (a[i] > b[i]) return i;
-      return -1;
-    } },
+    // Use the engine's authoritative breakeven_month (accounts for remaining
+    // loan, sell-side tx, carrying costs). Falls back to -1 ("never").
+    get: (r) => (r.breakeven_month == null ? -1 : Math.ceil(r.breakeven_month / 12)) },
   { key: "fx_final", label: "cmp_fx_final", fmt: "tl_short", dir: "neutral",
     get: (r) => r.dollar_rates_annual.at(-1) },
 ];

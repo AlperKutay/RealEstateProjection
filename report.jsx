@@ -371,10 +371,13 @@ function hueToRgb(hue) {
 }
 
 async function buildCompareChart(scenarios, results, seriesKey, unit, t) {
+  // Compare overlays use monthly variants (length = years*12+1), so the
+  // x-axis must be months_axis. Anything else (e.g. *_yearly / *_annual)
+  // falls back to years_axis.
+  const isMonthly = /(_monthly|monthly_payment_usd)$/.test(seriesKey);
   let labels = [];
   for (const r of results) {
     if (!r) continue;
-    const isMonthly = seriesKey === "monthly_payment_usd";
     const axis = isMonthly ? r.months_axis : r.years_axis;
     if (axis && axis.length > labels.length) labels = Array.from(axis);
   }

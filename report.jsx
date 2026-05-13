@@ -1276,11 +1276,13 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang, chartK
     : new Set(COMPARE_CHART_KEYS);
   const compareIf = (key, field, unit) =>
     selected.has(key) ? buildCompareChart(scenarios, results, field, unit, t) : Promise.resolve(null);
-  const [decisionImg, totalPaidImg, rentVsImg, fxImg] = await Promise.all([
-    compareIf("decision", "value_of_house_usd_yearly", "USD"),
-    compareIf("total_paid", "total_credit_amount_usd_annual", "USD"),
-    compareIf("rent_vs", "house_plus_rent_yearly", "USD"),
-    compareIf("fx", "dollar_rates_annual", "TL"),
+  const [decisionImg, totalPaidImg, rentVsImg, netPaymentImg, monthlyPaymentImg, fxImg] = await Promise.all([
+    compareIf("decision", "value_of_house_usd_monthly", "USD"),
+    compareIf("total_paid", "total_credit_amount_usd_monthly", "USD"),
+    compareIf("rent_vs", "house_plus_rent_monthly", "USD"),
+    compareIf("net_payment", "total_credit_minus_rent_usd_monthly", "USD"),
+    compareIf("monthly_payment", "monthly_payment_usd", "USD/ay"),
+    compareIf("fx", "dollar_rates_monthly", "TL"),
   ]);
 
   // determine winner per metric
@@ -1471,6 +1473,22 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang, chartK
         ${rentVsImg ? `<img src="${rentVsImg}" />` : ""}
       </div>` : "";
 
+  const cmpCardNetPayment = selected.has("net_payment") ? `
+      <div class="chart-card">
+        <h3>${escapeHtml(t("i_net_payment"))}</h3>
+        <p class="chart-sub">${escapeHtml(tt(t, "cmp_net_payment_sub", lang === "tr"
+          ? "Toplam ödediğinizden, kiracı kalsaydınız ödeyeceğiniz kirayı çıkar — net cep maliyeti."
+          : "Subtract the rent you would have paid from your total outlay — net out-of-pocket cost."))}</p>
+        ${netPaymentImg ? `<img src="${netPaymentImg}" />` : ""}
+      </div>` : "";
+
+  const cmpCardMonthlyPayment = selected.has("monthly_payment") ? `
+      <div class="chart-card">
+        <h3>${escapeHtml(t("view_payment"))}</h3>
+        <p class="chart-sub">${escapeHtml(t("view_payment_sub"))}</p>
+        ${monthlyPaymentImg ? `<img src="${monthlyPaymentImg}" />` : ""}
+      </div>` : "";
+
   const cmpCardFx = selected.has("fx") ? `
       <div class="chart-card">
         <h3>${escapeHtml(t("view_macro"))}</h3>
@@ -1478,24 +1496,31 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang, chartK
         ${fxImg ? `<img src="${fxImg}" />` : ""}
       </div>` : "";
 
-  const page2 = (cmpCardDecision || cmpCardTotalPaid) ? `
-    <div class="page">
-      ${renderHeader(t, lang, "compare")}
-      <h2 class="section-title">${escapeHtml(t("rpt_compare_overlays"))}<small>${escapeHtml(t("rpt_compare_overlays_sub"))}</small></h2>
-      ${cmpCardDecision}
-      ${cmpCardTotalPaid}
-    </div>
-  ` : "";
-
-  const anyCmpChart = cmpCardDecision || cmpCardTotalPaid || cmpCardRentVs || cmpCardFx;
-  const page3 = (cmpCardRentVs || cmpCardFx || anyCmpChart) ? `
-    <div class="page">
-      ${renderHeader(t, lang, "compare")}
-      ${cmpCardRentVs}
-      ${cmpCardFx}
-      <div class="footer">${escapeHtml(t("footer"))}</div>
-    </div>
-  ` : "";
+  // Build the chart pages dynamically: take whatever cards the user
+  // selected (in canonical order), drop the empty ones, and pair them
+  // two-per-page. This keeps the report tight when the user picks 2 or 3
+  // charts and expands gracefully when they want all 6.
+  const cardSlots = [
+    cmpCardDecision, cmpCardRentVs,
+    cmpCardTotalPaid, cmpCardNetPayment,
+    cmpCardMonthlyPayment, cmpCardFx,
+  ].filter(Boolean);
+  const chartPagesHtml = [];
+  for (let i = 0; i < cardSlots.length; i += 2) {
+    const pair = cardSlots.slice(i, i + 2).join("");
+    const isFirst = i === 0;
+    const isLast = i + 2 >= cardSlots.length;
+    chartPagesHtml.push(`
+      <div class="page">
+        ${renderHeader(t, lang, "compare")}
+        ${isFirst ? `<h2 class="section-title">${escapeHtml(t("rpt_compare_overlays"))}<small>${escapeHtml(t("rpt_compare_overlays_sub"))}</small></h2>` : ""}
+        ${pair}
+        ${isLast ? `<div class="footer">${escapeHtml(t("footer"))}</div>` : ""}
+      </div>
+    `);
+  }
+  const page2 = chartPagesHtml[0] || "";
+  const page3 = chartPagesHtml.slice(1).join("");
 
   return `<!doctype html>
 <html lang="${lang}">
@@ -1629,6 +1654,8 @@ const REPORT_CHART_DEFS = {
     { key: "decision", labelKey: "view_decision" },
     { key: "total_paid", labelKey: "i_total_paid" },
     { key: "rent_vs", labelKey: "view_rent_vs" },
+    { key: "net_payment", labelKey: "i_net_payment" },
+    { key: "monthly_payment", labelKey: "view_payment" },
     { key: "fx", labelKey: "view_macro" },
   ],
 };

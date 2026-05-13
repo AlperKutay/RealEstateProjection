@@ -264,20 +264,23 @@ const METRIC_DIR = {
   fx_final: "neutral",
 };
 
-// What to plot in compare overlay
+// Compare overlay views — every series is on the monthly axis so all
+// scenarios share the same dense x-axis (otherwise yearly snapshots from
+// 5-year vs 10-year scenarios end up at different x positions and the
+// dashed-tail extension looks misaligned).
 const OVERLAY_VIEWS = {
   decision: { titleKey: "view_decision", subKey: "view_decision_sub",
-    series: { key: "value_of_house_usd_yearly", labelKey: "f_value" }, unit: "USD" },
+    series: { key: "value_of_house_usd_monthly", labelKey: "f_value" }, unit: "USD" },
   total_paid: { titleKey: "i_total_paid", subKey: "cmp_total_paid_sub",
-    series: { key: "total_credit_amount_usd_annual", labelKey: "i_total_paid" }, unit: "USD" },
+    series: { key: "total_credit_amount_usd_monthly", labelKey: "i_total_paid" }, unit: "USD" },
   rent_vs:    { titleKey: "view_rent_vs", subKey: "view_rent_vs_sub",
-    series: { key: "house_plus_rent_yearly", labelKey: "view_rent_vs" }, unit: "USD" },
+    series: { key: "house_plus_rent_monthly", labelKey: "view_rent_vs" }, unit: "USD" },
   net_payment: { titleKey: "i_net_payment", subKey: "cmp_net_payment_sub",
-    series: { key: "total_credit_minus_rent_usd_yearly", labelKey: "i_net_payment" }, unit: "USD" },
+    series: { key: "total_credit_minus_rent_usd_monthly", labelKey: "i_net_payment" }, unit: "USD" },
   monthly_payment: { titleKey: "view_payment", subKey: "view_payment_sub",
     series: { key: "monthly_payment_usd", labelKey: "i_monthly_payment" }, unit: "USD/ay" },
   fx: { titleKey: "view_macro", subKey: "view_macro_sub",
-    series: { key: "dollar_rates_annual", labelKey: "f_start_dollar" }, unit: "TL" },
+    series: { key: "dollar_rates_monthly", labelKey: "f_start_dollar" }, unit: "TL" },
 };
 
 function fmtMetric(v, kind) {
@@ -311,13 +314,16 @@ function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, is
     if (!canvasRef.current || !window.Chart) return;
     if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {} chartRef.current = null; }
     const def = OVERLAY_VIEWS[view];
-    const isMonthly = def.series.key === "monthly_payment_usd";
+    // Every compare view is on a monthly axis now — even house_value /
+    // total_paid that have yearly variants — so all scenarios share the
+    // same dense x-axis and the dashed-tail extension lines up correctly.
+    const isMonthly = true;
 
-    // Build labels: use the longest axis among scenarios for x.
+    // Build labels: use the longest months_axis among scenarios for x.
     let labelsArr = [];
     for (const r of results) {
       if (!r) continue;
-      const axis = isMonthly ? r.months_axis : r.years_axis;
+      const axis = r.months_axis;
       if (axis && axis.length > labelsArr.length) labelsArr = Array.from(axis);
     }
 

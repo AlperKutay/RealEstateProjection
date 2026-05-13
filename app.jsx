@@ -30,10 +30,16 @@ function App() {
   const [assetInfo, setAssetInfo] = useState_A({});
   const [allAssetData, setAllAssetData] = useState_A({});
 
-  const [view, setView] = useState_A("setup"); // "setup" | "results"
+  const [view, setView] = useState_A("setup"); // "setup" | "results" | "compare"
   const [result, setResult] = useState_A(null);
   const [loading, setLoading] = useState_A(false);
   const [error, setError] = useState_A("");
+
+  // scenarios (saved + comparison)
+  const { scenarios, add: addScn, update: updateScn, remove: removeScn } = window.useScenarios();
+  const [activeScnId, setActiveScnId] = useState_A(null); // id of currently loaded scenario
+  const [draftDirty, setDraftDirty] = useState_A(false);
+  const [toast, setToast] = useState_A("");
 
   // tweaks (useTweaks is provided by tweaks-panel.jsx which loads before this file)
   const [tweaks, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
@@ -89,6 +95,81 @@ function App() {
     const { assets, ...rest } = p;
     setForm({ ...rest });
     setSelectedAssets([...assets]);
+    setActiveScnId(null);
+    setDraftDirty(false);
+  };
+
+  // when form / selected assets change after loading a scenario, mark dirty
+  const markDirty = useCallback(() => {
+    if (activeScnId != null) setDraftDirty(true);
+  }, [activeScnId]);
+
+  const setFormDirty = useCallback((f) => {
+    setForm((prev) => {
+      const next = typeof f === "function" ? f(prev) : f;
+      if (activeScnId != null) setDraftDirty(true);
+      return next;
+    });
+  }, [activeScnId]);
+
+  const setSelectedAssetsDirty = useCallback((a) => {
+    setSelectedAssets((prev) => {
+      const next = typeof a === "function" ? a(prev) : a;
+      if (activeScnId != null) setDraftDirty(true);
+      return next;
+    });
+  }, [activeScnId]);
+
+  // toast helper
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2400);
+  };
+
+  // ---- scenario actions ----
+  const handleSaveScenario = () => {
+    const defaultName = t("scn_save_default_name").replace("{n}", String(scenarios.length + 1));
+    const name = (prompt(t("scn_save_prompt"), defaultName) || "").trim();
+    if (!name) return;
+    const item = addScn({
+      name,
+      form: { ...form },
+      assets: [...selectedAssets],
+    });
+    setActiveScnId(item.id);
+    setDraftDirty(false);
+    showToast(t("scn_saved_toast").replace("{n}", name));
+  };
+
+  const handleLoadScenario = (scn) => {
+    setForm({ ...scn.form });
+    setSelectedAssets([...(scn.assets || [])]);
+    setActiveScnId(scn.id);
+    setDraftDirty(false);
+    showToast(t("scn_loaded_toast").replace("{n}", scn.name));
+    // auto-run when loading
+    setTimeout(() => {
+      try {
+        const input = { ...scn.form, assets: {} };
+        for (const sym of scn.assets || []) {
+          if (allAssetData[sym]) {
+            input.assets[sym] = {
+              average_growth: allAssetData[sym].average_growth,
+              current_price: allAssetData[sym].current_price,
+            };
+          }
+        }
+        const res = runProjection(input);
+        setResult(res);
+        setView("results");
+      } catch (e) { console.warn(e); }
+    }, 0);
+  };
+
+  const handleRenameScenario = (id, name) => updateScn(id, { name });
+  const handleDeleteScenario = (id) => {
+    removeScn(id);
+    if (activeScnId === id) { setActiveScnId(null); setDraftDirty(false); }
   };
 
   // run
@@ -191,7 +272,33 @@ function App() {
         >
           <span className="step-num">2</span>{t("step3")}
         </button>
+        <span className="step-divider">→</span>
+        <button
+          className={`step ${view === "compare" ? "active" : (scenarios.length >= 1 ? "done" : "")}`}
+          onClick={() => scenarios.length >= 1 && setView("compare")}
+          disabled={scenarios.length < 1}
+          style={scenarios.length < 1 ? { opacity: 0.55, cursor: "not-allowed" } : {}}
+        >
+          <span className="step-num">3</span>{t("step_compare")}
+          {scenarios.length > 0 ? <span className="step-badge">{scenarios.length}</span> : null}
+        </button>
       </div>
+
+      {/* Scenarios bar — visible on setup + results */}
+      {view !== "compare" && window.ScenarioBar ? (
+        <window.ScenarioBar
+          scenarios={scenarios}
+          activeId={activeScnId}
+          draftDirty={draftDirty}
+          hasResult={!!result}
+          onLoad={handleLoadScenario}
+          onSave={handleSaveScenario}
+          onRename={handleRenameScenario}
+          onDelete={handleDeleteScenario}
+          onOpenCompare={() => setView("compare")}
+          t={t}
+        />
+      ) : null}
 
       {view === "setup" && (
         <div data-screen-label="01 Setup">
@@ -199,11 +306,11 @@ function App() {
 
           <FormTabs
             form={form}
-            setForm={setForm}
+            setForm={setFormDirty}
             assetInfo={fullAssetInfo}
             supportedAssets={supportedAssets}
             selectedAssets={selectedAssets}
-            setSelectedAssets={setSelectedAssets}
+            setSelectedAssets={setSelectedAssetsDirty}
             t={t}
           />
 
@@ -232,6 +339,17 @@ function App() {
         </div>
       )}
 
+      {view === "compare" && window.CompareView ? (
+        <window.CompareView
+          scenarios={scenarios}
+          allAssetData={allAssetData}
+          t={t}
+          lang={lang}
+          isDark={isDark}
+          onClose={() => setView(result ? "results" : "setup")}
+        />
+      ) : null}
+
       {view === "results" && result && (
         <div data-screen-label="02 Results" className="results">
           <InsightCards result={result} form={form} t={t} lang={lang} />
@@ -254,11 +372,31 @@ function App() {
             <button className="btn btn-ghost" onClick={() => setView("setup")}>
               ← {t("edit")}
             </button>
+            <button className="btn btn-ghost" onClick={handleSaveScenario}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              {t("scn_save_current")}
+            </button>
+            {scenarios.length >= 1 ? (
+              <button className="btn btn-primary" onClick={() => setView("compare")}>
+                {t("scn_compare")}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </button>
+            ) : null}
           </div>
         </div>
       )}
 
       <p className="footnote">{t("footer")}</p>
+
+      {/* Toast */}
+      {toast ? <div className="toast">{toast}</div> : null}
 
       {/* Tweaks panel */}
       {window.TweaksPanel ? (

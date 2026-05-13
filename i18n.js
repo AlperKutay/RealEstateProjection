@@ -54,6 +54,10 @@ window.I18N = {
     f_years_unit: "yıl",
     f_years_help: "Kredi geri ödeme süresi. Türkiye'de konut kredisi tipik olarak 5–15 yıl.",
 
+    f_loan_term_years: "Kredi ödeme süresi",
+    f_loan_term_years_unit: "yıl",
+    f_loan_term_years_help: "Kaç yıl boyunca kredi taksiti ödeyeceksiniz. Vadeyle aynı olabilir veya daha kısa olabilir; ardından kredisiz dönem başlar.",
+
     f_interest: "Aylık faiz",
     f_interest_unit: "%",
     f_interest_help: "Bankanın aylık konut kredisi faiz oranı. 2026 ortalaması ~2.7%.",
@@ -213,6 +217,43 @@ window.I18N = {
     // currency labels
     cur_tl: "₺",
     cur_usd: "$",
+
+    // ----- scenarios / compare -----
+    scn_bar_title: "Senaryolar",
+    scn_save_current: "Senaryoyu kaydet",
+    scn_save_as_new: "Yeni senaryo olarak kaydet",
+    scn_save_need_calc: "Önce hesapla, sonra kaydet.",
+    scn_save_prompt: "Bu senaryoya isim verin:",
+    scn_save_default_name: "Senaryo {n}",
+    scn_compare: "Karşılaştır",
+    scn_compare_need_two: "Karşılaştırmak için en az 1 kayıtlı senaryo gerekir.",
+    scn_compare_title: "Senaryo karşılaştırması",
+    scn_compare_sub: "{n} senaryoyu aynı grafikte ve metrik tablosunda yan yana gör.",
+    scn_back_to_results: "Sonuçlara dön",
+    scn_draft: "Mevcut taslak",
+    scn_draft_sub: "kaydedilmemiş",
+    scn_dirty: "Yüklenen senaryoda değişiklik var",
+    scn_double_to_rename: "Çift tıkla — yeniden adlandır",
+    scn_delete: "Sil",
+    scn_delete_confirm: "\"{n}\" senaryosunu silmek istiyor musun?",
+    scn_empty_hint: "Hesapla, sonra burada kaydet — birden fazla senaryoyu yan yana kıyasla.",
+    scn_metrics_title: "Metrik karşılaştırması",
+    scn_metrics_sub: "Her satır bir metrik. ✓ işareti o metrikte en iyi senaryoyu gösterir.",
+    scn_metric: "Metrik",
+    scn_winner_note: "her satırın en iyisi",
+    scn_lower_better: "düşük iyi",
+    scn_higher_better: "yüksek iyi",
+    scn_show: "Karşılaştırmaya ekle",
+    scn_hide: "Karşılaştırmadan çıkar",
+    scn_loaded_toast: "\"{n}\" yüklendi.",
+    scn_saved_toast: "\"{n}\" kaydedildi.",
+
+    // Compare metric labels
+    cmp_house_final: "Vade sonu ev değeri (USD)",
+    cmp_fx_final: "Vade sonu USD/TL",
+    cmp_total_paid_sub: "Toplam ödenen tutarı USD bazında biriken hâliyle karşılaştır.",
+
+    step_compare: "Kıyas",
   },
 
   en: {
@@ -252,6 +293,10 @@ window.I18N = {
     f_years: "Term",
     f_years_unit: "yrs",
     f_years_help: "Loan repayment period. Turkish mortgages typically run 5–15 years.",
+
+    f_loan_term_years: "Mortgage payoff period",
+    f_loan_term_years_unit: "yr",
+    f_loan_term_years_help: "How many years you'll actually pay the mortgage. Equal to or shorter than the term; after this the credit-free phase begins.",
     f_interest: "Monthly rate",
     f_interest_unit: "%",
     f_interest_help: "Bank's monthly mortgage interest. 2026 average ~2.7%.",
@@ -389,6 +434,42 @@ window.I18N = {
       "For information only — not financial advice. Doesn't include taxes, insurance, maintenance or transaction costs.",
     cur_tl: "₺",
     cur_usd: "$",
+
+    // ----- scenarios / compare -----
+    scn_bar_title: "Scenarios",
+    scn_save_current: "Save scenario",
+    scn_save_as_new: "Save as new scenario",
+    scn_save_need_calc: "Calculate first, then save.",
+    scn_save_prompt: "Name this scenario:",
+    scn_save_default_name: "Scenario {n}",
+    scn_compare: "Compare",
+    scn_compare_need_two: "Save at least 1 scenario to compare.",
+    scn_compare_title: "Scenario comparison",
+    scn_compare_sub: "See {n} scenarios overlaid on one chart and side-by-side in the metric table.",
+    scn_back_to_results: "Back to results",
+    scn_draft: "Current draft",
+    scn_draft_sub: "unsaved",
+    scn_dirty: "Loaded scenario has been modified",
+    scn_double_to_rename: "Double-click to rename",
+    scn_delete: "Delete",
+    scn_delete_confirm: "Delete scenario \"{n}\"?",
+    scn_empty_hint: "Calculate then save your scenarios here — to compare them side by side.",
+    scn_metrics_title: "Metric comparison",
+    scn_metrics_sub: "Each row is one metric. ✓ marks the best scenario for that row.",
+    scn_metric: "Metric",
+    scn_winner_note: "best of the row",
+    scn_lower_better: "lower is better",
+    scn_higher_better: "higher is better",
+    scn_show: "Add to comparison",
+    scn_hide: "Remove from comparison",
+    scn_loaded_toast: "Loaded \"{n}\".",
+    scn_saved_toast: "Saved \"{n}\".",
+
+    cmp_house_final: "Final home value (USD)",
+    cmp_fx_final: "Final USD/TL",
+    cmp_total_paid_sub: "Compare cumulative USD outlay across scenarios.",
+
+    step_compare: "Compare",
   },
 };
 

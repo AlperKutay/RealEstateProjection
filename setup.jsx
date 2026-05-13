@@ -205,6 +205,14 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
               <NumInput value={form.years} step={1} min={1} max={30} unit={t("f_years_unit")}
                 onChange={(v) => setF({ years: Math.round(v) })} />
             </Field>
+            <Field label={t("f_loan_term_years")} helpText={t("f_loan_term_years_help")}>
+              <NumInput
+                value={form.loan_term_years != null ? form.loan_term_years : form.years}
+                step={1} min={1} max={form.years}
+                unit={t("f_loan_term_years_unit")}
+                onChange={(v) => setF({ loan_term_years: Math.round(v) })}
+              />
+            </Field>
             <Field label={t("f_interest")} helpText={t("f_interest_help")}>
               <NumInput value={form.interest_rate} step={0.01} min={0} unit={t("f_interest_unit")}
                 onChange={(v) => setF({ interest_rate: v })} />

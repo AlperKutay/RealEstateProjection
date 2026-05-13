@@ -612,6 +612,42 @@ const REPORT_CSS = `
   table.inputs-table td.val { font-family: Geist Mono, monospace; font-weight: 500; }
   table.inputs-table tr:last-child td { border-bottom: none; }
 
+  /* Per-year rate table */
+  table.rate-table {
+    width: 100%; border-collapse: collapse; font-size: 9pt;
+    border: 1px solid ${REPORT_BORDER}; border-radius: 10px; overflow: hidden;
+    margin-bottom: 16px;
+  }
+  table.rate-table th, table.rate-table td {
+    border-bottom: 1px solid ${REPORT_BORDER};
+    padding: 6px 10px; text-align: left;
+  }
+  table.rate-table thead th {
+    background: #f4ede2; font-size: 8.5pt; font-weight: 600;
+    color: ${REPORT_INK_MUTE}; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  table.rate-table td:first-child {
+    color: ${REPORT_INK_MUTE}; font-family: Geist Mono, monospace; width: 50px;
+  }
+  table.rate-table td.val { font-family: Geist Mono, monospace; font-weight: 500; }
+  table.rate-table tr:last-child td { border-bottom: none; }
+
+  /* Per-scenario rate-block wrapper (compare report) */
+  .rate-block { margin-bottom: 18px; break-inside: avoid; }
+  .rate-block-head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 6px; font-size: 10pt;
+  }
+  .rate-block-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block; flex-shrink: 0;
+  }
+  .rate-block-name { font-weight: 600; color: ${REPORT_INK}; }
+  .rate-block-meta {
+    font-family: Geist Mono, monospace; font-size: 9pt;
+    color: ${REPORT_INK_MUTE};
+  }
+
   /* Compare table */
   table.cmp-table {
     width: 100%; border-collapse: collapse;
@@ -802,6 +838,63 @@ function renderInputGroupsHtml(form, result, t, lang) {
   `).join("");
 }
 
+// Per-year FX growth + TR inflation, exactly as fed to the engine. In flat
+// mode every year repeats the scalar; in yearly mode we pull from the per-year
+// array. The year-end FX comes from the engine output (so deflate-by-US and
+// rebalancing are reflected automatically).
+function perYearRateTableRows(form, result) {
+  const years = form.years;
+  const rows = [];
+  for (let y = 0; y < years; y++) {
+    const usd = form.dollar_growth_mode === "yearly" &&
+      Array.isArray(form.dollar_growth_per_year) &&
+      form.dollar_growth_per_year.length === years
+        ? form.dollar_growth_per_year[y]
+        : (form.dollar_growth_rate ?? 0);
+    const tr = form.turkey_inflation_mode === "yearly" &&
+      Array.isArray(form.turkey_inflation_per_year) &&
+      form.turkey_inflation_per_year.length === years
+        ? form.turkey_inflation_per_year[y]
+        : (form.turkey_inflation ?? 0);
+    const fx = result && result.dollar_rates_annual
+      ? result.dollar_rates_annual[y + 1]
+      : null;
+    rows.push({ year: y + 1, usd, tr, fx });
+  }
+  return rows;
+}
+
+function renderYearlyRateTableHtml(form, result, t, lang) {
+  const rows = perYearRateTableRows(form, result);
+  const usdMode = form.dollar_growth_mode === "yearly" ? "yearly" : "flat";
+  const trMode = form.turkey_inflation_mode === "yearly" ? "yearly" : "flat";
+  const usdHeader = t("f_dollar_growth") + (usdMode === "yearly" ? " (" + t("re_mode_yearly").toLowerCase() + ")" : "");
+  const trHeader = t("f_tr_inflation") + (trMode === "yearly" ? " (" + t("re_mode_yearly").toLowerCase() + ")" : "");
+  const fxHeader = "USD/TL";
+  return `
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th>${escapeHtml(t("re_year_label") || (lang === "tr" ? "Yıl" : "Year"))}</th>
+          <th>${escapeHtml(usdHeader)}</th>
+          <th>${escapeHtml(trHeader)}</th>
+          <th>${escapeHtml(fxHeader)}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((r) => `
+          <tr>
+            <td>${r.year}</td>
+            <td class="val">${(r.usd).toFixed(2)} %</td>
+            <td class="val">${(r.tr).toFixed(2)} %</td>
+            <td class="val">${r.fx != null ? r.fx.toFixed(2) + " ₺" : "—"}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
 // ===== Page-wrapping helpers =====
 function renderHeader(t, lang, kind, scenarioName) {
   return `
@@ -960,7 +1053,7 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
         ${rentVsImg ? `<img src="${rentVsImg}" alt="rent vs chart" />` : ""}
         <p class="chart-method">${escapeHtml(t("view_rent_vs_method"))}</p>
       </div>
-      <div class="page-number">2</div>
+      <div class="page-number">3</div>
     </div>
   `;
 
@@ -984,7 +1077,17 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
       </div>
 
       <div class="footer">${escapeHtml(t("footer"))}</div>
-      <div class="page-number">3</div>
+      <div class="page-number">4</div>
+    </div>
+  `;
+
+  // page 1.5: per-year FX + inflation table
+  const pageRates = `
+    <div class="page">
+      ${renderHeader(t, lang, "single", scenarioName)}
+      <h2 class="section-title">${escapeHtml(t("rpt_per_year_rates"))}<small>${escapeHtml(t("rpt_per_year_rates_sub"))}</small></h2>
+      ${renderYearlyRateTableHtml(form, result, t, lang)}
+      <div class="page-number">2</div>
     </div>
   `;
 
@@ -1001,6 +1104,7 @@ async function buildSingleReportHTML({ result, form, lang, t, scenarioName, allA
 <body>
   ${renderToolbar(t)}
   ${page1}
+  ${pageRates}
   ${page2}
   ${page3}
 </body>
@@ -1209,6 +1313,32 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
     </div>
   `;
 
+  // Per-scenario rate tables — one compact block per scenario so the reader
+  // can see exactly which FX / inflation each scenario used each year.
+  const perYearTablesHtml = scenarios.map((s, i) => {
+    const r = results[i];
+    const color = hueToRgb(s.hue);
+    return `
+      <div class="rate-block">
+        <div class="rate-block-head" style="--c:${color}">
+          <span class="rate-block-dot" style="background:${color}"></span>
+          <span class="rate-block-name">${escapeHtml(s.name)}</span>
+          <span class="rate-block-meta">${s.form.years}${escapeHtml(t("f_years_unit"))}</span>
+        </div>
+        ${renderYearlyRateTableHtml(s.form, r, t, lang)}
+      </div>
+    `;
+  }).join("");
+
+  const pageRates = `
+    <div class="page">
+      ${renderHeader(t, lang, "compare")}
+      <h2 class="section-title">${escapeHtml(t("rpt_per_year_rates"))}<small>${escapeHtml(t("rpt_per_year_rates_sub"))}</small></h2>
+      ${perYearTablesHtml}
+      <div class="page-number">2</div>
+    </div>
+  `;
+
   const page2 = `
     <div class="page">
       ${renderHeader(t, lang, "compare")}
@@ -1225,7 +1355,7 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
         <p class="chart-sub">${escapeHtml(t("cmp_total_paid_sub"))}</p>
         ${totalPaidImg ? `<img src="${totalPaidImg}" />` : ""}
       </div>
-      <div class="page-number">2</div>
+      <div class="page-number">3</div>
     </div>
   `;
 
@@ -1246,7 +1376,7 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
       </div>
 
       <div class="footer">${escapeHtml(t("footer"))}</div>
-      <div class="page-number">3</div>
+      <div class="page-number">4</div>
     </div>
   `;
 
@@ -1263,6 +1393,7 @@ async function buildCompareReportHTML({ scenarios, allAssetData, t, lang }) {
 <body>
   ${renderToolbar(t)}
   ${page1}
+  ${pageRates}
   ${page2}
   ${page3}
 </body>

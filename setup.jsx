@@ -88,10 +88,11 @@ function RateDistributionSection({
   title, subFlat, subYearly,
   color, unit = "%", min = -30, max = 200,
   icon,
+  length,
 }) {
   const isYearly = (form[modeKey] || "flat") === "yearly";
   const targetAvg = form[targetKey] ?? 0;
-  const years = form.years;
+  const years = length != null ? length : form.years;
   return (
     <div className={`rate-section ${isYearly ? "is-on" : ""}`}>
       <div className="rate-section-head">
@@ -298,11 +299,41 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                 onChange={(v) => setF({ loan_term_years: Math.round(v) })}
               />
             </Field>
-            <Field label={t("f_interest")} helpText={t("f_interest_help")}>
-              <NumInput value={form.interest_rate} step={0.01} min={0} unit={t("f_interest_unit")}
+            <Field
+              label={t("f_interest")}
+              helpText={t("f_interest_help")}
+              hint={(form.interest_rate_mode || "flat") === "yearly"
+                ? <span style={{ color: "var(--accent)" }}>{t("re_target_explain")}</span>
+                : null}
+            >
+              <NumInput value={form.interest_rate} step={0.01} min={0}
+                unit={(form.interest_rate_mode || "flat") === "yearly" ? t("re_target_unit") : t("f_interest_unit")}
                 onChange={(v) => setF({ interest_rate: v })} />
             </Field>
           </div>
+
+          <RateDistributionSection
+            form={form} setF={setF} t={t}
+            modeKey="interest_rate_mode"
+            perYearKey="interest_rate_per_year"
+            lockKey="interest_rate_lock_avg"
+            targetKey="interest_rate"
+            length={form.loan_term_years != null ? form.loan_term_years : form.years}
+            title={t("re_section_title_interest")}
+            subFlat={t("re_section_sub_interest_flat")}
+            subYearly={t("re_section_sub_interest_yearly")}
+            color="oklch(0.58 0.13 320)"
+            unit="%"
+            min={0}
+            max={20}
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 5L5 19"/>
+                <circle cx="7.5" cy="7.5" r="2.5"/>
+                <circle cx="16.5" cy="16.5" r="2.5"/>
+              </svg>
+            }
+          />
         </div>
       )}
 

@@ -98,18 +98,18 @@ const MACRO_FIELDS = [
   "deflate_dollar_by_us_inflation",
   "generate_random",
 ];
-// Resize an array to exactly `len`. Truncates if too long, pads with the
-// array's last value (or fallback) if too short. The engine checks
-// length === years and silently falls back to flat mode when they don't
-// match — this keeps the macro override visible.
-function resizePerYearArray(arr, len, fallback) {
+// Pad-only: keep base's full data; if it's shorter than the target's
+// horizon, extend by repeating the last value. Never truncate — when
+// base is longer than target, target gets extended to base's horizon
+// later by computeResult so all of base's data is needed.
+function padPerYearArray(arr, minLen, fallback) {
   if (!Array.isArray(arr)) return arr;
-  if (arr.length === len) return arr;
-  if (arr.length > len) return arr.slice(0, len);
+  const need = Math.max(minLen, arr.length);
+  if (arr.length >= need) return arr;
   const last = arr.length ? arr[arr.length - 1] : (fallback ?? 0);
-  const padded = arr.slice();
-  while (padded.length < len) padded.push(last);
-  return padded;
+  const out = arr.slice();
+  while (out.length < need) out.push(last);
+  return out;
 }
 
 function applyMacroOverride(scn, base) {
@@ -118,17 +118,21 @@ function applyMacroOverride(scn, base) {
   for (const k of MACRO_FIELDS) {
     if (k in base.form) overrides[k] = base.form[k];
   }
-  // Per-year arrays must align with the TARGET scenario's years, not the
-  // base's — otherwise the engine rejects the override.
-  const targetYears = scn.form.years;
+  // Per-year array length must match runProjection's `inp.years`. The
+  // engine checks length === years and falls back to flat mode otherwise.
+  // After this override, computeResult will run with `years = max(target,
+  // base.years)` — so the array needs to cover that maximum. Pad to the
+  // longer of target's years and base array's existing length; never cut
+  // base's data short.
+  const targetYears = scn.form.years || 0;
   if (Array.isArray(overrides.dollar_growth_per_year)) {
-    overrides.dollar_growth_per_year = resizePerYearArray(
+    overrides.dollar_growth_per_year = padPerYearArray(
       overrides.dollar_growth_per_year, targetYears,
       overrides.dollar_growth_rate ?? scn.form.dollar_growth_rate,
     );
   }
   if (Array.isArray(overrides.turkey_inflation_per_year)) {
-    overrides.turkey_inflation_per_year = resizePerYearArray(
+    overrides.turkey_inflation_per_year = padPerYearArray(
       overrides.turkey_inflation_per_year, targetYears,
       overrides.turkey_inflation ?? scn.form.turkey_inflation,
     );

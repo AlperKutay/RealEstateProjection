@@ -103,6 +103,7 @@ function ScenarioBar({
   draftDirty,
   onLoad,
   onSave,
+  onUpdate,
   onRename,
   onDelete,
   onOpenCompare,
@@ -112,6 +113,9 @@ function ScenarioBar({
   const empty = scenarios.length === 0;
   const canCompare = scenarios.length >= 1; // 1 saved + draft, or 2+ saved
   const [renamingId, setRenamingId] = useState_S(null);
+  // When the user loaded a saved scenario and tweaked it, "update" the
+  // active one in-place. Otherwise the only save action is "save as new".
+  const canUpdate = !!onUpdate && activeId != null && draftDirty && hasResult;
 
   return (
     <div className="scn-bar">
@@ -122,6 +126,19 @@ function ScenarioBar({
           {!empty ? <span className="scn-bar-count">{scenarios.length}</span> : null}
         </div>
         <div className="scn-bar-actions">
+          {canUpdate ? (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={onUpdate}
+              title={t("scn_update_title")}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-3-6.7"/>
+                <polyline points="21 4 21 10 15 10"/>
+              </svg>
+              {t("scn_update_active")}
+            </button>
+          ) : null}
           <button
             className="btn btn-ghost btn-sm"
             onClick={onSave}

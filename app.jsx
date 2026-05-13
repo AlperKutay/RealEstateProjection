@@ -219,6 +219,21 @@ function App() {
     showToast(t("scn_saved_toast").replace("{n}", name));
   };
 
+  // Save the current draft back to the active scenario (in-place edit), no
+  // name prompt. Used when the user loaded a saved scenario, tweaked the
+  // form, and wants to update the original.
+  const handleUpdateScenario = () => {
+    if (activeScnId == null) return;
+    const target = scenarios.find((s) => s.id === activeScnId);
+    if (!target) return;
+    updateScn(activeScnId, {
+      form: { ...form },
+      assets: [...selectedAssets],
+    });
+    setDraftDirty(false);
+    showToast(t("scn_updated_toast").replace("{n}", target.name));
+  };
+
   const handleLoadScenario = (scn) => {
     setForm({ ...scn.form });
     setSelectedAssets([...(scn.assets || [])]);
@@ -416,6 +431,7 @@ function App() {
           hasResult={!!result}
           onLoad={handleLoadScenario}
           onSave={handleSaveScenario}
+          onUpdate={handleUpdateScenario}
           onRename={handleRenameScenario}
           onDelete={handleDeleteScenario}
           onOpenCompare={() => setView("compare")}

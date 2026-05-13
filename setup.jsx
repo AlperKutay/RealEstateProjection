@@ -58,6 +58,91 @@ function Select({ value, onChange, options }) {
   );
 }
 
+// Small inline segmented switch — used in field labels (e.g. flat vs yearly mode)
+function ModeSwitch({ value, onChange, labels }) {
+  const keys = Object.keys(labels);
+  return (
+    <div className="mode-switch" role="tablist">
+      {keys.map((k) => (
+        <button
+          key={k}
+          type="button"
+          className={value === k ? "active" : ""}
+          onClick={() => onChange(k)}
+          role="tab"
+          aria-selected={value === k}
+        >
+          {labels[k]}
+        </button>
+      ))}
+    </div>
+  );
+}
+window.ModeSwitch = ModeSwitch;
+
+// Reusable section that wraps the YearlyRateEditor. Drives a {modeKey, perYearKey,
+// lockKey, targetKey} group inside `form`. Same UI for any per-year rate.
+function RateDistributionSection({
+  form, setF, t,
+  modeKey, perYearKey, lockKey, targetKey,
+  title, subFlat, subYearly,
+  color, unit = "%", min = -30, max = 200,
+  icon,
+}) {
+  const isYearly = (form[modeKey] || "flat") === "yearly";
+  const targetAvg = form[targetKey] ?? 0;
+  const years = form.years;
+  return (
+    <div className={`rate-section ${isYearly ? "is-on" : ""}`}>
+      <div className="rate-section-head">
+        <div className="rate-section-titles">
+          <h4 className="rate-section-h">
+            {icon}
+            {title}
+          </h4>
+          <p className="rate-section-sub">{isYearly ? subYearly : subFlat}</p>
+        </div>
+        <ModeSwitch
+          value={form[modeKey] || "flat"}
+          onChange={(v) => {
+            if (v === "yearly") {
+              const arr =
+                Array.isArray(form[perYearKey]) && form[perYearKey].length === years
+                  ? form[perYearKey]
+                  : Array(years).fill(targetAvg);
+              setF({ [modeKey]: "yearly", [perYearKey]: arr });
+            } else {
+              setF({ [modeKey]: "flat" });
+            }
+          }}
+          labels={{ flat: t("re_mode_flat"), yearly: t("re_mode_yearly") }}
+        />
+      </div>
+      {isYearly && window.YearlyRateEditor ? (
+        <window.YearlyRateEditor
+          years={years}
+          values={form[perYearKey] || []}
+          setValues={(v) => setF({ [perYearKey]: v })}
+          targetAvg={targetAvg}
+          lockAvg={form[lockKey] !== false}
+          setLockAvg={(v) => setF({ [lockKey]: v })}
+          onMatchTarget={() =>
+            setF({
+              [perYearKey]: window.PATTERN_FNS.flat(years, targetAvg),
+            })
+          }
+          unit={unit}
+          min={min}
+          max={max}
+          color={color}
+          t={t}
+        />
+      ) : null}
+    </div>
+  );
+}
+window.RateDistributionSection = RateDistributionSection;
+
 function ToggleCard({ on, onChange, title, sub }) {
   return (
     <button type="button" className={`toggle ${on ? "on" : ""}`} onClick={() => onChange(!on)}>
@@ -229,15 +314,48 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
               <NumInput value={form.start_dollar_tl} step={0.1} min={1} unit={t("f_start_dollar_unit")}
                 onChange={(v) => setF({ start_dollar_tl: v })} />
             </Field>
-            <Field label={t("f_dollar_growth")} helpText={t("f_dollar_growth_help")}>
-              <NumInput value={form.dollar_growth_rate} step={0.5} unit={t("f_dollar_growth_unit")}
+            <Field
+              label={t("f_dollar_growth")}
+              helpText={t("f_dollar_growth_help")}
+              hint={(form.dollar_growth_mode || "flat") === "yearly"
+                ? <span style={{ color: "var(--accent)" }}>{t("re_target_explain")}</span>
+                : null}
+            >
+              <NumInput value={form.dollar_growth_rate} step={0.5}
+                unit={(form.dollar_growth_mode || "flat") === "yearly" ? t("re_target_unit") : t("f_dollar_growth_unit")}
                 onChange={(v) => setF({ dollar_growth_rate: v })} />
             </Field>
           </div>
+
+          <RateDistributionSection
+            form={form} setF={setF} t={t}
+            modeKey="dollar_growth_mode"
+            perYearKey="dollar_growth_per_year"
+            lockKey="dollar_growth_lock_avg"
+            targetKey="dollar_growth_rate"
+            title={t("re_section_title_usd")}
+            subFlat={t("re_section_sub_usd_flat")}
+            subYearly={t("re_section_sub_usd_yearly")}
+            color="oklch(0.58 0.13 230)"
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 17 9 11 13 15 21 7"/>
+                <polyline points="14 7 21 7 21 14"/>
+              </svg>
+            }
+          />
+
           <p className="section-label" style={{ marginTop: 22 }}>{t("group_inflation")}</p>
           <div className="fields">
-            <Field label={t("f_tr_inflation")} helpText={t("f_tr_inflation_help")}>
-              <NumInput value={form.turkey_inflation} step={0.5} unit={t("f_tr_inflation_unit")}
+            <Field
+              label={t("f_tr_inflation")}
+              helpText={t("f_tr_inflation_help")}
+              hint={(form.turkey_inflation_mode || "flat") === "yearly"
+                ? <span style={{ color: "var(--accent)" }}>{t("re_target_explain")}</span>
+                : null}
+            >
+              <NumInput value={form.turkey_inflation} step={0.5}
+                unit={(form.turkey_inflation_mode || "flat") === "yearly" ? t("re_target_unit") : t("f_tr_inflation_unit")}
                 onChange={(v) => setF({ turkey_inflation: v })} />
             </Field>
             <Field label={t("f_us_inflation")} helpText={t("f_us_inflation_help")}>
@@ -245,6 +363,23 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                 onChange={(v) => setF({ usa_inflation: v })} />
             </Field>
           </div>
+
+          <RateDistributionSection
+            form={form} setF={setF} t={t}
+            modeKey="turkey_inflation_mode"
+            perYearKey="turkey_inflation_per_year"
+            lockKey="turkey_inflation_lock_avg"
+            targetKey="turkey_inflation"
+            title={t("re_section_title_tr")}
+            subFlat={t("re_section_sub_tr_flat")}
+            subYearly={t("re_section_sub_tr_yearly")}
+            color="oklch(0.58 0.13 50)"
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l1.5 4.5L18 8l-3.5 3 1 4.5L12 13l-3.5 2.5 1-4.5L6 8l4.5-1.5z"/>
+              </svg>
+            }
+          />
         </div>
       )}
 

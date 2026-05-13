@@ -29,6 +29,9 @@
   <!-- Tweaks panel must be loaded first so window.TweaksPanel exists when App mounts -->
   <script type="text/babel" src="tweaks-panel.jsx"></script>
 
+  <!-- Yearly rate editor — must be loaded before setup.jsx (setup reads window.YearlyRateEditor) -->
+  <script type="text/babel" src="rate-editor.jsx"></script>
+
   <!-- Component files — order matters: dependents last -->
   <script type="text/babel" src="setup.jsx"></script>
   <script type="text/babel" src="results.jsx"></script>

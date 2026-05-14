@@ -865,6 +865,68 @@ input, select { font-family: inherit; color: inherit; }
   color: var(--bg);
 }
 
+.zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+.zoom-btn {
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 120ms, color 120ms;
+}
+.zoom-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.zoom-btn.zoom-reset {
+  padding: 6px 10px;
+  border-left: 1px solid var(--border);
+  border-radius: 0 6px 6px 0;
+  margin-left: 2px;
+}
+
+.zoom-hint {
+  margin: 10px 0 0;
+  font-family: "Geist Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  opacity: 0.75;
+  letter-spacing: 0.01em;
+}
+
+.cmp-chart-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.cmp-chart-toolbar .zoom-hint { margin: 0; flex: 1; min-width: 0; }
+
+.chart-wrap canvas {
+  cursor: grab;
+}
+.chart-wrap canvas:active {
+  cursor: grabbing;
+}
+
 /* ---------- Detail table (collapsible) ---------- */
 
 .details {

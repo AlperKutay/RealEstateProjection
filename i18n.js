@@ -239,6 +239,13 @@ window.I18N = {
     save_chart: "Grafiği indir",
     details: "Tüm sayılar",
 
+    // zoom controls
+    zoom: "Yakınlaştırma",
+    zoom_in: "Yakınlaştır",
+    zoom_out: "Uzaklaştır",
+    reset_zoom: "Sıfırla",
+    zoom_hint: "İpucu: tekerlekle yakınlaştır · sürükleyerek kaydır · Shift+sürükle ile alan seç · çimdikle (mobil)",
+
     // misc
     yearly: "Yıllık",
     monthly: "Aylık",
@@ -548,6 +555,11 @@ window.I18N = {
     new_scenario: "New scenario",
     save_chart: "Save chart",
     details: "All numbers",
+    zoom: "Zoom",
+    zoom_in: "Zoom in",
+    zoom_out: "Zoom out",
+    reset_zoom: "Reset",
+    zoom_hint: "Tip: scroll to zoom · drag to pan · Shift+drag to box-zoom · pinch on touch",
     yearly: "Yearly",
     monthly: "Monthly",
     year: "Year",

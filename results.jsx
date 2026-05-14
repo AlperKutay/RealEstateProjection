@@ -335,9 +335,19 @@ function Verdict({ result, t }) {
 
 // ---------------- Chart ----------------
 
-function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
+function ProjectionChart({ result, form, t, lang, view, granularity, isDark, chartApiRef }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
+
+  // Register the zoom plugin once Chart.js + plugin are both on window.
+  useEffect(() => {
+    if (window.Chart && window.ChartZoom && !window.__zoomRegistered) {
+      try {
+        window.Chart.register(window.ChartZoom);
+        window.__zoomRegistered = true;
+      } catch (_) {}
+    }
+  }, []);
 
   useEffect(() => {
     if (!result || !canvasRef.current || !window.Chart) return;
@@ -479,6 +489,27 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
         animation: { duration: 400 },
         interaction: { mode: "index", intersect: false },
         plugins: {
+          zoom: {
+            limits: { x: { minRange: 2 } },
+            pan: {
+              enabled: true,
+              mode: "xy",
+              modifierKey: null,
+              threshold: 5,
+            },
+            zoom: {
+              wheel: { enabled: true, speed: 0.1 },
+              pinch: { enabled: true },
+              drag: {
+                enabled: true,
+                modifierKey: "shift",
+                backgroundColor: isDark ? "oklch(0.58 0.13 230 / 0.18)" : "oklch(0.58 0.13 230 / 0.12)",
+                borderColor: "oklch(0.58 0.13 230)",
+                borderWidth: 1,
+              },
+              mode: "xy",
+            },
+          },
           legend: {
             display: true,
             position: "bottom",
@@ -559,6 +590,14 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark }) {
       },
     });
 
+    if (chartApiRef) {
+      chartApiRef.current = {
+        reset: () => { try { chartRef.current && chartRef.current.resetZoom(); } catch (_) {} },
+        zoomIn: () => { try { chartRef.current && chartRef.current.zoom(1.2); } catch (_) {} },
+        zoomOut: () => { try { chartRef.current && chartRef.current.zoom(0.8); } catch (_) {} },
+      };
+    }
+
     return () => {
       if (chartRef.current) {
         try { chartRef.current.destroy(); } catch (_) {}
@@ -586,6 +625,7 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
   const [view, setView] = useState_R("decision");
   const [granularity, setGranularity] = useState_R(form.use_months ? "monthly" : "yearly");
   const def = VIEW_DEFS[view];
+  const chartApiRef = useRef(null);
 
   return (
     <div className="chart-panel">
@@ -621,8 +661,10 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
           view={view}
           granularity={granularity}
           isDark={isDark}
+          chartApiRef={chartApiRef}
         />
       </div>
+      <p className="zoom-hint">{t("zoom_hint")}</p>
       <div className="chart-foot">
         <div className="granularity">
           <button className={granularity === "yearly" ? "active" : ""} onClick={() => setGranularity("yearly")}>
@@ -630,6 +672,44 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
           </button>
           <button className={granularity === "monthly" ? "active" : ""} onClick={() => setGranularity("monthly")}>
             {t("monthly")}
+          </button>
+        </div>
+        <div className="zoom-controls" role="group" aria-label={t("zoom")}>
+          <button
+            type="button"
+            className="zoom-btn"
+            title={t("zoom_out")}
+            aria-label={t("zoom_out")}
+            onClick={() => chartApiRef.current && chartApiRef.current.zoomOut()}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="zoom-btn"
+            title={t("zoom_in")}
+            aria-label={t("zoom_in")}
+            onClick={() => chartApiRef.current && chartApiRef.current.zoomIn()}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <line x1="8" y1="11" x2="14" y2="11"/>
+              <line x1="11" y1="8" x2="11" y2="14"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="zoom-btn zoom-reset"
+            title={t("reset_zoom")}
+            aria-label={t("reset_zoom")}
+            onClick={() => chartApiRef.current && chartApiRef.current.reset()}
+          >
+            {t("reset_zoom")}
           </button>
         </div>
         <button className="btn btn-ghost" onClick={onSave}>

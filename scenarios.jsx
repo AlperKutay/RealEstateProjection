@@ -460,7 +460,7 @@ function fmtMetric(v, kind) {
 
 // ---------- Overlay chart ----------
 
-function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, isDark }) {
+function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, isDark, chartApiRef }) {
   const canvasRef = useRef_S(null);
   const chartRef = useRef_S(null);
 
@@ -524,6 +524,27 @@ function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, is
         animation: { duration: 350 },
         interaction: { mode: "index", intersect: false },
         plugins: {
+          zoom: {
+            limits: { x: { minRange: 2 } },
+            pan: {
+              enabled: true,
+              mode: "xy",
+              modifierKey: null,
+              threshold: 5,
+            },
+            zoom: {
+              wheel: { enabled: true, speed: 0.1 },
+              pinch: { enabled: true },
+              drag: {
+                enabled: true,
+                modifierKey: "shift",
+                backgroundColor: isDark ? "oklch(0.58 0.13 230 / 0.18)" : "oklch(0.58 0.13 230 / 0.12)",
+                borderColor: "oklch(0.58 0.13 230)",
+                borderWidth: 1,
+              },
+              mode: "xy",
+            },
+          },
           legend: {
             display: true, position: "bottom",
             labels: { color: ink, boxWidth: 10, boxHeight: 10, padding: 14,
@@ -571,8 +592,19 @@ function CompareChart({ scenarios, results, originalYearsByIdx = [], view, t, is
       },
     });
 
-    return () => { if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {} chartRef.current = null; } };
+    return () => {
+      if (chartRef.current) { try { chartRef.current.destroy(); } catch (_) {} chartRef.current = null; }
+    };
   }, [scenarios, results, view, t, isDark]);
+
+  useEffect_S(() => {
+    if (!chartApiRef) return;
+    chartApiRef.current = {
+      reset: () => { try { chartRef.current && chartRef.current.resetZoom(); } catch (_) {} },
+      zoomIn: () => { try { chartRef.current && chartRef.current.zoom(1.2); } catch (_) {} },
+      zoomOut: () => { try { chartRef.current && chartRef.current.zoom(0.8); } catch (_) {} },
+    };
+  });
 
   return <canvas ref={canvasRef}></canvas>;
 }
@@ -583,6 +615,7 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
   const [saving, setSaving] = useState_S(false);
   const [rptBusy, setRptBusy] = useState_S(false);
   const compareRef = useRef_S(null);
+  const cmpChartApiRef = useRef_S(null);
 
   const saveCompare = async () => {
     if (!compareRef.current || !window.html2canvas || saving) return;
@@ -806,7 +839,48 @@ function CompareView({ scenarios, allAssetData, t, lang, isDark, onClose }) {
           </div>
         </div>
         <div className="cmp-chart-wrap">
-          <CompareChart scenarios={activeScns} results={results} originalYearsByIdx={originalYearsByIdx} view={view} t={t} isDark={isDark} />
+          <CompareChart scenarios={activeScns} results={results} originalYearsByIdx={originalYearsByIdx} view={view} t={t} isDark={isDark} chartApiRef={cmpChartApiRef} />
+        </div>
+        <div className="cmp-chart-toolbar">
+          <p className="zoom-hint">{t("zoom_hint")}</p>
+          <div className="zoom-controls" role="group" aria-label={t("zoom")}>
+            <button
+              type="button"
+              className="zoom-btn"
+              title={t("zoom_out")}
+              aria-label={t("zoom_out")}
+              onClick={() => cmpChartApiRef.current && cmpChartApiRef.current.zoomOut()}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="zoom-btn"
+              title={t("zoom_in")}
+              aria-label={t("zoom_in")}
+              onClick={() => cmpChartApiRef.current && cmpChartApiRef.current.zoomIn()}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              className="zoom-btn zoom-reset"
+              title={t("reset_zoom")}
+              aria-label={t("reset_zoom")}
+              onClick={() => cmpChartApiRef.current && cmpChartApiRef.current.reset()}
+            >
+              {t("reset_zoom")}
+            </button>
+          </div>
         </div>
       </div>
 

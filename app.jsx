@@ -315,6 +315,38 @@ function App() {
     a.click();
   };
 
+  // Dump every yearly-resolution series to a CSV — one row per year, one
+  // column per result field whose array length matches the yearly axis.
+  // BOM prefix so Excel reads the UTF-8 column names correctly.
+  const downloadCSV = () => {
+    if (!result || !result.years_axis) return;
+    const n = result.years_axis.length;
+    if (!n) return;
+    const cols = [];
+    for (const [k, v] of Object.entries(result)) {
+      if (Array.isArray(v) && v.length === n && typeof v[0] === "number") {
+        cols.push([k, v]);
+      }
+    }
+    cols.sort((a, b) => a[0].localeCompare(b[0]));
+    const lines = [["year", ...cols.map((c) => c[0])].join(",")];
+    for (let i = 0; i < n; i++) {
+      const row = [result.years_axis[i]];
+      for (const [, arr] of cols) {
+        const x = arr[i];
+        row.push(x == null || !isFinite(x) ? "" : x);
+      }
+      lines.push(row.join(","));
+    }
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "projection-" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast(t("csv_downloaded"));
+  };
+
   const activeScenarioName = useMemo_A(() => {
     if (activeScnId == null) return null;
     const s = scenarios.find((x) => x.id === activeScnId);
@@ -518,6 +550,15 @@ function App() {
                 <polyline points="7 3 7 8 15 8"/>
               </svg>
               {t("scn_save_current")}
+            </button>
+            <button className="btn btn-ghost" onClick={downloadCSV} title={t("csv_tooltip")}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="8" y1="13" x2="16" y2="13"/>
+                <line x1="8" y1="17" x2="16" y2="17"/>
+              </svg>
+              {t("csv_button")}
             </button>
             {window.ReportLauncher ? (
               <window.ReportLauncher

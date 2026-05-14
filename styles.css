@@ -86,6 +86,38 @@ input, select { font-family: inherit; color: inherit; }
 
 @media (max-width: 720px) {
   .app { padding: 20px 16px 80px; }
+
+  /* Insights pack two-up instead of three/four-up so cards stay legible
+     without turning the screen into one tall column. */
+  .insights { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .insight { padding: 14px 14px 12px; }
+  .insight-value { font-size: 22px; }
+
+  /* Chart panel: tighter padding, shorter canvas, and a horizontally
+     scrollable view switcher instead of a wrapping pile of buttons. */
+  .chart-panel { padding: 16px 14px 18px; }
+  .chart-wrap { height: 320px; min-height: 280px; }
+  .chart-head { gap: 10px; }
+  .view-switch {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    scrollbar-width: none;
+  }
+  .view-switch::-webkit-scrollbar { display: none; }
+  .view-switch button { white-space: nowrap; padding: 7px 9px; }
+
+  /* Foot controls and bottom action row: let everything wrap and stretch
+     so buttons stay tappable. */
+  .chart-foot { gap: 8px; }
+  .chart-foot .btn-ghost { margin-left: auto; }
+  .action-row { gap: 8px; }
+  .action-row .btn { flex: 1 1 auto; justify-content: center; }
+
+  .steps { gap: 2px; }
+  .step { padding: 5px 9px 5px 5px; font-size: 12px; }
+  .hero { margin-bottom: 20px; }
 }
 
 /* ---------- Top bar ---------- */

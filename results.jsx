@@ -63,8 +63,10 @@ const VIEW_DEFS = {
     series: [
       { key: "monthly_payment_usd", labelKey: "i_monthly_payment", formulaKey: "sf_monthly_pay", color: 0, offset: 1 },
       { key: "rent_price_usd", labelKey: "f_rent", formulaKey: "sf_rent_monthly", color: 6, dash: true },
+      { key: "payment_salary_ratio", labelKey: "sl_salary_gross", formulaKey: "sf_salary_ratio", color: 3, offset: 1, isRatio: true, axis: "y1", needsSalary: true },
     ],
     unit: "USD/ay",
+    unit2: "%",
   },
   rent_vs: {
     titleKey: "view_rent_vs", subKey: "view_rent_vs_sub", methodKey: "view_rent_vs_method",
@@ -339,12 +341,19 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
-  // Register the zoom plugin once Chart.js + plugin are both on window.
+  // Register the zoom + annotation plugins once Chart.js + plugins are on window.
   useEffect(() => {
     if (window.Chart && window.ChartZoom && !window.__zoomRegistered) {
       try {
         window.Chart.register(window.ChartZoom);
         window.__zoomRegistered = true;
+      } catch (_) {}
+    }
+    const annoPlugin = window["chartjs-plugin-annotation"] || window.ChartAnnotation;
+    if (window.Chart && annoPlugin && !window.__annoRegistered) {
+      try {
+        window.Chart.register(annoPlugin);
+        window.__annoRegistered = true;
       } catch (_) {}
     }
   }, []);
@@ -362,9 +371,13 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
 
     const datasets = [];
     let colorIdx = 0;
+    let usesY1 = false;
+    const hasSalary = form.start_salary_base > 0;
 
     const envelopes = result.envelopes;
     for (const s of def.series) {
+      // Salary-dependent overlay series only make sense when a salary is set.
+      if (s.needsSalary && !hasSalary) continue;
       const fields = SERIES_FIELDS[s.key];
       if (!fields) continue;
       const fieldName = useMonths ? fields[1] : fields[0];
@@ -372,6 +385,8 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
       if (!arr) continue;
       const offset = s.offset || 0;
       const color = CHART_COLORS[s.color != null ? s.color : colorIdx++];
+      const yAxisID = s.axis === "y1" ? "y1" : "y";
+      if (yAxisID === "y1") usesY1 = true;
       const env = envelopes && envelopes[fieldName];
 
       // Monte Carlo mode for this series — draw a filled p10–p90 band plus
@@ -395,6 +410,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
         datasets.push({
           label: t(s.labelKey) + " — P10",
           data: p10Data,
+          yAxisID,
           borderColor: "transparent",
           backgroundColor: "transparent",
           borderWidth: 0,
@@ -407,6 +423,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
         datasets.push({
           label: t(s.labelKey) + " — P90",
           data: p90Data,
+          yAxisID,
           borderColor: "transparent",
           backgroundColor: bandFill,
           borderWidth: 0,
@@ -419,6 +436,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
         datasets.push({
           label: t(s.labelKey),
           data: p50Data,
+          yAxisID,
           borderColor: color,
           backgroundColor: color,
           borderDash: s.dash ? [6, 4] : [],
@@ -441,6 +459,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
       datasets.push({
         label: t(s.labelKey),
         data,
+        yAxisID,
         borderColor: color,
         backgroundColor: color,
         borderDash: s.dash ? [6, 4] : [],
@@ -479,6 +498,56 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
     const surface = isDark ? "oklch(0.245 0.012 75)" : "oklch(0.995 0.004 80)";
     const border = isDark ? "oklch(0.40 0.014 75)" : "oklch(0.85 0.01 80)";
 
+    // Annotations — a dashed line where the loan finishes (only when the loan
+    // term is shorter than the projection horizon) and a green marker at the
+    // break-even point. x values are plain category values (years_axis /
+    // months_axis hold integers), so the index matches the label.
+    const annotations = {};
+    const loanEndYear = Math.max(1, Math.min(form.years, form.loan_term_years ?? form.years));
+    if (loanEndYear < form.years) {
+      const x = useMonths ? loanEndYear * 12 : loanEndYear;
+      annotations.loanEnd = {
+        type: "line",
+        xMin: x, xMax: x,
+        borderColor: isDark ? "oklch(0.62 0.03 75)" : "oklch(0.72 0.03 75)",
+        borderWidth: 1.5,
+        borderDash: [5, 4],
+        label: {
+          display: true,
+          content: t("anno_loan_end"),
+          position: "start",
+          backgroundColor: isDark ? "oklch(0.30 0.012 75)" : "oklch(0.96 0.008 80)",
+          color: ink,
+          font: { family: "Geist, system-ui", size: 10.5, weight: "500" },
+          padding: { x: 6, y: 3 },
+          borderRadius: 5,
+        },
+      };
+    }
+    const beMonth = result.breakeven_month;
+    if (beMonth != null && beMonth > 0) {
+      const x = useMonths ? beMonth : Math.ceil(beMonth / 12);
+      const maxX = useMonths ? result.months_axis.length - 1 : result.years_axis.length - 1;
+      if (x <= maxX) {
+        annotations.breakeven = {
+          type: "line",
+          xMin: x, xMax: x,
+          borderColor: "oklch(0.58 0.13 155)",
+          borderWidth: 1.5,
+          label: {
+            display: true,
+            content: t("anno_breakeven"),
+            position: "end",
+            backgroundColor: "oklch(0.58 0.13 155)",
+            color: "#fff",
+            font: { family: "Geist, system-ui", size: 10.5, weight: "600" },
+            padding: { x: 6, y: 3 },
+            borderRadius: 5,
+          },
+        };
+      }
+    }
+
     const ctx = canvasRef.current.getContext("2d");
     chartRef.current = new Chart(ctx, {
       type: "line",
@@ -510,6 +579,7 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
               mode: "xy",
             },
           },
+          annotation: { annotations },
           legend: {
             display: true,
             position: "bottom",
@@ -546,12 +616,13 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
               label: (item) => {
                 const v = item.parsed.y;
                 if (v == null) return item.dataset.label + ": —";
+                const unit = item.dataset.yAxisID === "y1" ? def.unit2 : def.unit;
                 const fmt =
-                  def.unit === "%"
+                  unit === "%"
                     ? v.toFixed(1) + "%"
-                    : def.unit === "TL"
+                    : unit === "TL"
                       ? v.toFixed(2) + " ₺"
-                      : def.unit === "USD/ay"
+                      : unit === "USD/ay"
                         ? "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 })
                         : "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
                 return "  " + item.dataset.label + "   " + fmt;
@@ -586,6 +657,22 @@ function ProjectionChart({ result, form, t, lang, view, granularity, isDark, cha
               },
             },
           },
+          ...(usesY1 ? {
+            y1: {
+              position: "right",
+              grid: { drawOnChartArea: false },
+              border: { display: false },
+              ticks: {
+                color: ink,
+                font: { family: "Geist Mono, monospace", size: 11 },
+                callback: (val) => {
+                  if (def.unit2 === "%") return val.toFixed(0) + "%";
+                  if (Math.abs(val) >= 1_000) return (val / 1_000).toFixed(0) + "k";
+                  return val.toFixed(0);
+                },
+              },
+            },
+          } : {}),
         },
       },
     });
@@ -650,7 +737,7 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
         </div>
       </div>
 
-      <SeriesGlossary def={def} result={result} t={t} />
+      <SeriesGlossary def={def} result={result} t={t} form={form} />
 
       <div className="chart-wrap">
         <ProjectionChart
@@ -727,13 +814,16 @@ function ChartPanel({ result, form, t, lang, hasSalary, isDark, onSave }) {
 
 // ---------------- Series glossary (formula card) ----------------
 
-function SeriesGlossary({ def, result, t }) {
-  const items = def.series.map((s, i) => ({
-    color: CHART_COLORS[s.color != null ? s.color : i],
-    dash: !!s.dash,
-    label: t(s.labelKey),
-    formula: s.formulaKey ? t(s.formulaKey) : null,
-  }));
+function SeriesGlossary({ def, result, t, form }) {
+  const hasSalary = form && form.start_salary_base > 0;
+  const items = def.series
+    .filter((s) => !(s.needsSalary && !hasSalary))
+    .map((s, i) => ({
+      color: CHART_COLORS[s.color != null ? s.color : i],
+      dash: !!s.dash,
+      label: t(s.labelKey),
+      formula: s.formulaKey ? t(s.formulaKey) : null,
+    }));
   // Append asset projection series so each gets explained too
   if (def.includeAssets && result.asset_projections) {
     let idx = 2;

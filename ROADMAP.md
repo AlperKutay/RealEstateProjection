@@ -113,26 +113,36 @@ Goal: the numbers we show should be defensible.
 
 ## Phase 4 — UX Polish
 
-- [ ] **Shareable URL state**
-  - Serialize `form` + `selectedAssets` + `selectedPlots` to URL hash.
-  - Restore on page load. Lets users share scenarios.
+- [x] **Shareable URL state** — done in `app.jsx`.
+  - `encodeState` / `decodeState` pack `form` + `selectedAssets` + `lang`
+    into a versioned (`s1=`) base64 URL hash; `history.replaceState` keeps
+    it in sync (debounced), and the hash is hydrated on first mount. A
+    share button in the topbar copies the link to the clipboard.
 
-- [ ] **Multi-axis or faceted chart**
-  - Ratio plots (Payment/Salary) on a secondary y-axis, or split into
-    a small-multiple panel below the main chart.
-  - Today, putting a 0–1 ratio next to USD figures makes both unreadable.
+- [x] **Multi-axis or faceted chart** — secondary y-axis support.
+  - `ProjectionChart` now honours a per-series `axis: "y1"` and a view-level
+    `unit2`; a right-hand `y1` scale is added only when a series uses it
+    (`grid.drawOnChartArea: false` so it doesn't clutter). The `payment`
+    view overlays the payment/salary ratio (%) on `y1` when a salary is set
+    — the salary-dependent series is gated by `needsSalary` in both the
+    chart loop and the glossary.
 
-- [ ] **Plot annotations**
-  - Vertical line at "kredi bitiş yılı".
-  - Marker at break-even year.
+- [x] **Plot annotations** — `chartjs-plugin-annotation` (CDN).
+  - Dashed line at the loan-end year (only drawn when the loan term is
+    shorter than the projection horizon) and a green break-even marker
+    from `result.breakeven_month`. Both adapt to yearly/monthly granularity.
 
-- [ ] **Mobile layout**
-  - Current top-layout looks fine on desktop but the 3-col grid stacks
-    vertically on mobile → 6 panels tall. Collapse into accordion / tabs.
+- [x] **Mobile layout** — expanded the `max-width: 720px` media query.
+  - Insights pack two-up (smaller `minmax`), chart panel uses tighter
+    padding + a shorter canvas, the view switcher scrolls horizontally
+    instead of wrapping, and the foot/action rows wrap with stretched
+    tap targets.
 
-- [ ] **CSV / PDF export**
-  - "Sonuçları indir" → downloads a CSV of all series, or a PDF report
-    with chart + summary.
+- [x] **CSV / PDF export** — both done.
+  - PDF: `report.jsx` (`generateSingleReport` / `ReportLauncher`,
+    print-to-PDF). CSV: `downloadCSV` in `app.jsx` dumps every
+    yearly-resolution series to a BOM-prefixed CSV; button sits in the
+    results action row.
 
 ---
 
@@ -157,8 +167,51 @@ Goal: the numbers we show should be defensible.
 
 ---
 
+## Phase 6 — alalimmi.com (multi-asset expansion)
+
+Goal: grow from a buy-vs-rent *house* tool into a general "alalım mı?"
+decision tool — same engine philosophy (buy vs. invest the money
+instead), applied to other big purchases. Domain: `alalimmi.com`.
+
+This is a scope shift, not just features — it reshapes the engine and
+the navigation. Sequenced so each step ships something usable.
+
+- [ ] **Custom domain** — point `alalimmi.com` at GitHub Pages
+  - Add a `CNAME` file to the repo root; configure DNS (A records or
+    `CNAME` to `<user>.github.io`). No build-step change. Low effort,
+    can land first.
+
+- [ ] **Asset-class abstraction** — generalize `runProjection`
+  - Today the engine is house-specific (appreciation, rent, mortgage).
+    Introduce an "asset class" concept distinguishing *appreciating*
+    (house) vs *depreciating* (car, electronics) assets, each with its
+    own carrying-cost and resale model. Keep the core "buy vs. invest
+    the down payment instead" comparison shared across classes.
+  - Builds on the existing `SUPPORTED_ASSETS` notion but one level up.
+
+- [ ] **Car module** — first new asset class
+  - Depreciation curve instead of appreciation.
+  - Carrying costs: MTV, kasko/sigorta, yakıt, bakım, lastik.
+  - Financing options: taşıt kredisi vs. nakit vs. operasyonel kiralama
+    (common in TR — worth a first-class comparison).
+
+- [ ] **SEO landing pages** — one page per calculator
+  - Dedicated, indexable pages ("araba kredisi mi nakit mi",
+    "kiralık mı satılık mı") so the domain gets organic traffic.
+  - Still static; no build step required.
+
+- [ ] **Pull "Shareable URL state" (Phase 4) forward**
+  - Shareable scenario links are the cheapest growth lever for a public
+    site — prioritize alongside this phase rather than waiting for the
+    Phase 4 UX-polish pass.
+
+---
+
 ## Out of scope (for now)
 
 - Multi-user accounts / saved scenarios on a backend
 - Localization beyond TR/EN
 - Native mobile app
+
+Note: "other asset classes" left this list as of Phase 6 — the tool is
+no longer house-only.

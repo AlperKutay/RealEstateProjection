@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # Plain-JS files are global-scope <script> includes (no module system).
+      # node --check is a parse-only syntax gate — it never executes them.
+      - name: Syntax check plain-JS files
+        run: node --check projection.js i18n.js
+
+      # tests/projection.test.js loads projection.js via eval (see its header),
+      # so no build/install step is required.
+      - name: Run engine tests
+        run: node --test tests/projection.test.js

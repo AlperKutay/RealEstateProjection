@@ -89,25 +89,34 @@ Goal: the numbers we show should be defensible.
 
 ## Phase 3 — Useful Comparisons (domain)
 
-- [ ] **Rent-it-out scenario**
-  - Toggle "evi kiraya ver" — assumes the user lives elsewhere, evaluates the
-    rental yield + capital gain vs. mortgage cost.
-  - Adds `vacancy_rate`, `rental_income_tax_rate`, and reuses house value
-    projection.
+- [x] **Rent-it-out scenario** — `rent_it_out` toggle + `vacancy_rate` +
+  `rental_income_tax_rate`.
+  - When on, the engine scales the USD rent series by
+    `(1−vacancy)·(1−tax)`, so "rent" becomes net rental income received and
+    flows through `cum_rent` / `total_credit_minus_rent` /
+    `net_buy_position` / `breakeven` unchanged. Factor is 1 in the live-in
+    case, so existing behaviour is untouched. UI lives in the Rent & Salary
+    tab; presets carry the three new fields.
 
-- [ ] **Early prepayment / refinance**
-  - New input: lump-sum extra payment at year X.
-  - Recompute amortization with shorter remaining term.
+- [x] **Early prepayment** — `prepayment_amount_tl` + `prepayment_year`.
+  - A lump sum applied to the balance on its year boundary, *before* that
+    year's re-amortization, in both the payment-building and remaining-loan
+    loops (kept consistent). It lowers later installments (shortens cost,
+    not term) and is folded back into `monthlyPaymentTlArr` so
+    `total_paid_tl` and the USD outlay series count it as cash spent.
+    Refinance (rate change) is already covered by the rate editor below.
 
-- [ ] **Loan rate change scenario**
-  - Variable-rate loan: input a schedule of rates by year.
-  - Useful for Turkey's recent rate volatility.
+- [x] **Loan rate change scenario** — already shipped via `rate-editor.jsx`.
+  - The engine supports `interest_rate_mode: "yearly"` +
+    `interest_rate_per_year[]`, re-amortizing at each anniversary; the
+    yearly rate editor UI drives it.
 
-- [ ] **Real-USD consistency**
-  - `deflate_dollar_by_us_inflation` only adjusts the dollar growth rate,
-    but other USD series (house value, rent) aren't deflated. Make the toggle
-    consistent — either deflate everything to real USD, or remove the toggle
-    and let the user enter real-USD growth directly.
+- [x] **Real-USD consistency** — deflate everything, consistently.
+  - The old hack quietly shrank the FX growth rate (and *raised* USD house
+    values — backwards). Now `dollar_rates_*` stay nominal for output, and
+    a `fxConv*` rate (nominal × US-CPI deflator) is used for every TL→USD
+    conversion, so when the toggle is on every USD series is real
+    (today's-purchasing-power) USD, consistently. Deflator is 1 at t=0.
 
 ---
 
@@ -148,22 +157,26 @@ Goal: the numbers we show should be defensible.
 
 ## Phase 5 — Code Quality & Ops
 
-- [ ] **CI on GitHub Actions**
-  - Lint JS (eslint or just `node --check`), syntax-check HTML, run JS tests
-    once Phase 2 lands.
+- [x] **CI on GitHub Actions** — `.github/workflows/ci.yml`.
+  - Runs on push + pull_request: `node --check projection.js i18n.js`
+    then `node --test tests/projection.test.js`. No install step (tests
+    load the engine via `eval`).
 
-- [ ] **TypeScript for frontend**
-  - Add a TS definition for the projection result shape so `_result` isn't
-    typed `any`. Optional — only if `app.js` grows.
+- [x] **TypeScript for frontend** — `types/projection.d.ts`.
+  - A standalone `.d.ts` typing the `runProjection` result shape
+    (`ProjectionResult`) and the Monte Carlo extension
+    (`MonteCarloResult` with `envelopes`). Optional aid — nothing compiles
+    against it, no build step added.
 
-- [ ] **Magic-number config**
-  - `randomYearlyPath` jitter range (0.7..1.3), monthly jitter (0.98..1.05) —
-    extract to a constants block.
+- [x] **Magic-number config** — extracted in `projection.js`.
+  - `YEARLY_JITTER_LO/HI` (0.7/1.3) and `MONTHLY_JITTER_LO/HI`
+    (0.98/1.05) now live in a named constants block at the top.
 
-- [ ] **GH Action to refresh `assets.json`**
-  - Optional: weekly cron that hits yfinance (in CI), updates `assets.json`,
-    opens a PR. Restores the live-data feature without bringing back a runtime
-    backend.
+- [x] **GH Action to refresh `assets.json`** — already shipped.
+  - `.github/workflows/refresh-assets.yml` runs a weekly cron +
+    `workflow_dispatch`, refreshing `assets.json` from yfinance. (Currently
+    commits directly to the branch rather than opening a PR — a future
+    tweak could switch it to `create-pull-request`.)
 
 ---
 

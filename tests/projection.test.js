@@ -578,3 +578,67 @@ test("early-payoff scenario: full-horizon series stay populated past loan-end", 
   // Cumulative rent strictly grows year over year (rent is always positive).
   assert.ok(r.cumulative_rent_price_usd_yearly[10] > r.cumulative_rent_price_usd_yearly[5]);
 });
+
+// --- Phase 3: real-USD consistency ----------------------------------
+
+test("real-USD toggle keeps dollar_rates nominal but deflates USD series", () => {
+  const nominal = runProjection(baseInput({ deflate_dollar_by_us_inflation: false, usa_inflation: 3 }));
+  const real = runProjection(baseInput({ deflate_dollar_by_us_inflation: true, usa_inflation: 3 }));
+  // The exchange-rate output is nominal either way — the toggle no longer
+  // quietly shrinks the FX growth rate.
+  assert.ok(Math.abs(nominal.dollar_rates_annual[10] - real.dollar_rates_annual[10]) < 1e-9,
+    "dollar_rates_annual must be identical with the toggle on vs off");
+  // Every USD series is deflated by the US-CPI factor at its own index.
+  const deflator = Math.pow(1.03, 10);
+  assert.ok(Math.abs(real.value_of_house_usd_yearly[10] - nominal.value_of_house_usd_yearly[10] / deflator) < 1e-6);
+  // At t=0 the deflator is 1, so values match exactly.
+  assert.ok(Math.abs(real.value_of_house_usd_yearly[0] - nominal.value_of_house_usd_yearly[0]) < 1e-9);
+});
+
+// --- Phase 3: early prepayment --------------------------------------
+
+test("early prepayment cuts the remaining loan and re-amortizes lower", () => {
+  const noPre = runProjection(baseInput({ years: 10, loan_term_years: 10 }));
+  const withPre = runProjection(baseInput({
+    years: 10, loan_term_years: 10,
+    prepayment_amount_tl: 200_000, prepayment_year: 3,
+  }));
+  // Right after the prepayment year the balance is lower.
+  assert.ok(withPre.remaining_loan_usd_yearly[3] < noPre.remaining_loan_usd_yearly[3]);
+  // Installments after the prepayment shrink (re-amortized over less principal).
+  assert.ok(withPre.monthly_payment_usd[48] < noPre.monthly_payment_usd[48]);
+  // The lump is counted as cash spent that month — month 36 spikes above a
+  // later regular installment.
+  assert.ok(withPre.monthly_payment_usd[36] > withPre.monthly_payment_usd[40]);
+  // Paying early saves interest, so total nominal TL paid is lower overall.
+  assert.ok(withPre.total_paid_tl < noPre.total_paid_tl);
+  // The loan still fully amortizes by the end of the term.
+  assert.ok(Math.abs(withPre.remaining_loan_usd_monthly[120]) < 1e-6);
+});
+
+// --- Phase 3: rent-it-out -------------------------------------------
+
+test("rent-it-out with zero vacancy + tax leaves the rent series unchanged", () => {
+  const off = runProjection(baseInput());
+  const onZero = runProjection(baseInput({
+    rent_it_out: true, vacancy_rate: 0, rental_income_tax_rate: 0,
+  }));
+  assert.ok(Math.abs(off.rent_price_usd_yearly[5] - onZero.rent_price_usd_yearly[5]) < 1e-9);
+  assert.ok(Math.abs(
+    off.cumulative_rent_price_usd_yearly.at(-1) - onZero.cumulative_rent_price_usd_yearly.at(-1),
+  ) < 1e-9);
+});
+
+test("rent-it-out scales the rent series by (1-vacancy)(1-tax)", () => {
+  const gross = runProjection(baseInput({
+    rent_it_out: true, vacancy_rate: 0, rental_income_tax_rate: 0,
+  }));
+  const net = runProjection(baseInput({
+    rent_it_out: true, vacancy_rate: 20, rental_income_tax_rate: 25,
+  }));
+  const factor = 0.8 * 0.75; // (1-0.20)·(1-0.25) = 0.60
+  for (const y of [1, 5, 10]) {
+    assert.ok(Math.abs(net.rent_price_usd_yearly[y] - gross.rent_price_usd_yearly[y] * factor) < 1e-6,
+      `year ${y}: net rent should be gross × ${factor}`);
+  }
+});

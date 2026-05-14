@@ -317,6 +317,28 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                 unit={(form.interest_rate_mode || "flat") === "yearly" ? t("re_target_unit") : t("f_interest_unit")}
                 onChange={(v) => setF({ interest_rate: v })} />
             </Field>
+            <Field
+              label={t("f_prepayment_amount")}
+              helpText={t("f_prepayment_amount_help")}
+              hint={form.prepayment_amount_tl > 0
+                ? <>{fmtTL(form.prepayment_amount_tl)}</>
+                : <span style={{ color: "var(--ink-mute)" }}>{t("f_prepayment_off")}</span>}
+            >
+              <NumInput value={(form.prepayment_amount_tl || 0) / 1_000_000} step={0.05} min={0}
+                unit={t("f_prepayment_amount_unit")}
+                onChange={(v) => setF({ prepayment_amount_tl: Math.round(v * 1_000_000) })} />
+            </Field>
+            {form.prepayment_amount_tl > 0 && (
+              <Field label={t("f_prepayment_year")} helpText={t("f_prepayment_year_help")}>
+                <NumInput
+                  value={form.prepayment_year || 1}
+                  step={1} min={1}
+                  max={(form.loan_term_years != null ? form.loan_term_years : form.years) - 1}
+                  unit={t("f_prepayment_year_unit")}
+                  onChange={(v) => setF({ prepayment_year: Math.round(v) })}
+                />
+              </Field>
+            )}
           </div>
 
           <RateDistributionSection
@@ -430,6 +452,22 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
                 onChange={(v) => setF({ initial_monthly_rent_tl: v })} />
             </Field>
           </div>
+          <div className="toggle-row" style={{ marginTop: 14 }}>
+            <ToggleCard on={!!form.rent_it_out} onChange={(v) => setF({ rent_it_out: v })}
+              title={t("opt_rent_it_out")} sub={t("opt_rent_it_out_sub")} />
+          </div>
+          {form.rent_it_out && (
+            <div className="fields" style={{ marginTop: 14 }}>
+              <Field label={t("f_vacancy_rate")} helpText={t("f_vacancy_rate_help")}>
+                <NumInput value={form.vacancy_rate || 0} step={1} min={0} max={100} unit={t("f_vacancy_rate_unit")}
+                  onChange={(v) => setF({ vacancy_rate: v })} />
+              </Field>
+              <Field label={t("f_rental_income_tax_rate")} helpText={t("f_rental_income_tax_rate_help")}>
+                <NumInput value={form.rental_income_tax_rate || 0} step={1} min={0} max={100} unit={t("f_rental_income_tax_rate_unit")}
+                  onChange={(v) => setF({ rental_income_tax_rate: v })} />
+              </Field>
+            </div>
+          )}
           <p className="section-label" style={{ marginTop: 22 }}>{t("group_salary")}</p>
           <div className="fields">
             <Field label={t("f_salary_currency")} helpText={t("f_salary_help")}>

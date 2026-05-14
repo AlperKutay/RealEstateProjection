@@ -9,6 +9,16 @@ const SUPPORTED_ASSETS = [
   "XAUUSD", "XAGUSD", "BTC", "ETH", "XU100", "XU30", "NASDAQ", "S&P",
 ];
 
+// Tunable constants for the random-path generator.
+//   YEARLY_JITTER: each year's growth is sampled uniformly within
+//     [target*LO, target*HI] before being rescaled to hit the target.
+//   MONTHLY_JITTER: the 12 within-year multipliers are sampled in
+//     [LO, HI] then normalized so their product matches the year's.
+const YEARLY_JITTER_LO = 0.7;
+const YEARLY_JITTER_HI = 1.3;
+const MONTHLY_JITTER_LO = 0.98;
+const MONTHLY_JITTER_HI = 1.05;
+
 // ---------------- primitives ----------------
 
 function compoundSeries(start, rate, steps) {
@@ -29,7 +39,7 @@ function uniform(a, b) { return a + Math.random() * (b - a); }
 
 function randomYearlyPath(initial, years, targetAvgPct) {
   const target = targetAvgPct / 100;
-  const raw = Array.from({ length: years }, () => uniform(target * 0.7, target * 1.3));
+  const raw = Array.from({ length: years }, () => uniform(target * YEARLY_JITTER_LO, target * YEARLY_JITTER_HI));
   // Rescale so that the *geometric* mean of (1+r_i) equals (1+target).
   // That guarantees prod(1+adjusted_i) = (1+target)^years exactly, so the
   // compounded final value matches the deterministic compound series.
@@ -58,7 +68,7 @@ function randomMonthlyPath(initial, years, targetAvgPct) {
   const monthly = [initial];
   for (let y = 0; y < years; y++) {
     const yearMul = 1 + adjusted[y];
-    const rawM = Array.from({ length: 12 }, () => uniform(0.98, 1.05));
+    const rawM = Array.from({ length: 12 }, () => uniform(MONTHLY_JITTER_LO, MONTHLY_JITTER_HI));
     const productPow = Math.pow(rawM.reduce((p, x) => p * x, 1), 1 / 12);
     const yearMulPow = Math.pow(yearMul, 1 / 12);
     const norm = rawM.map(x => (x * yearMulPow) / productPow);
@@ -89,10 +99,12 @@ function prefixSum(a) {
 
 // ---------------- intermediate helpers ----------------
 
+// Nominal dollar growth. Real-USD deflation is NOT applied here — when
+// `deflate_dollar_by_us_inflation` is on we instead deflate every USD-
+// denominated output series consistently (see `fxConv*` in runProjection),
+// rather than quietly shrinking the FX growth rate.
 function effectiveDollarGrowth(inp) {
-  let annualPct = inp.dollar_growth_rate;
-  if (inp.deflate_dollar_by_us_inflation) annualPct -= inp.usa_inflation;
-  const annual = annualPct / 100;
+  const annual = inp.dollar_growth_rate / 100;
   const monthly = Math.pow(1 + annual, 1 / 12) - 1;
   return { annual, monthly };
 }
@@ -117,7 +129,7 @@ function buildCompoundPaths(start, inp, opts) {
       // realistic random walk (anchors back to the year-end value).
       for (let y = 0; y < inp.years; y++) {
         const yearMul = 1 + perYear[y] / 100;
-        const rawM = Array.from({ length: 12 }, () => uniform(0.98, 1.05));
+        const rawM = Array.from({ length: 12 }, () => uniform(MONTHLY_JITTER_LO, MONTHLY_JITTER_HI));
         const productPow = Math.pow(rawM.reduce((p, x) => p * x, 1), 1 / 12);
         const yearMulPow = Math.pow(yearMul, 1 / 12);
         const norm = rawM.map((x) => (x * yearMulPow) / productPow);
@@ -196,6 +208,16 @@ function runProjection(inp) {
   // Loan
   const loan = inp.value_of_house_tl - inp.initial_noncredit_amount_tl;
 
+  // Early prepayment: an optional lump sum paid on a year boundary. It is
+  // applied to the balance *before* that year's re-amortization, so it lowers
+  // every later installment (it shortens cost, not the term). The amount is
+  // folded back into monthlyPaymentTlArr after the balance series is built, so
+  // total_paid_tl and the USD outlay series count it as cash spent that month.
+  const prepayAmtReq = Math.max(0, inp.prepayment_amount_tl ?? 0);
+  const prepayMonth = prepayAmtReq > 0 ? Math.round(inp.prepayment_year ?? 0) * 12 : -1;
+  const prepayActive = prepayMonth > 0 && prepayMonth < loanMonths;
+  let prepayApplied = 0; // actual reduction, capped at the outstanding balance
+
   // Variable interest rate: each year may carry a different monthly rate.
   // At every year boundary the payment is recomputed using the current
   // balance, remaining months, and that year's rate (matches how Turkish
@@ -219,6 +241,10 @@ function runProjection(inp) {
   let firstMonthPayment = 0;
   for (let m = 0; m < loanMonths; m++) {
     if (m % 12 === 0) {
+      if (prepayActive && m === prepayMonth) {
+        prepayApplied = Math.min(prepayAmtReq, balance);
+        balance -= prepayApplied;
+      }
       const r = monthlyRateAt(m);
       const remMonths = loanMonths - m;
       const newPayment = amortizedMonthlyPayment(balance, r, remMonths);
@@ -235,15 +261,12 @@ function runProjection(inp) {
   const monthlyTlPayment = firstMonthPayment;
   const annualTlPayment = monthlyTlPayment * 12;
 
-  // ---- Dollar growth (flat or per-year)
-  // In yearly mode the user supplies one growth rate per year; we apply
-  // optional USA-inflation deflation per year, then build paths.
-  const usInfDeflate = inp.deflate_dollar_by_us_inflation ? (inp.usa_inflation ?? 0) : 0;
+  // ---- Dollar growth (flat or per-year) — always nominal here.
   const dollarPerYear =
     inp.dollar_growth_mode === "yearly" &&
     Array.isArray(inp.dollar_growth_per_year) &&
     inp.dollar_growth_per_year.length === inp.years
-      ? inp.dollar_growth_per_year.map((r) => r - usInfDeflate)
+      ? inp.dollar_growth_per_year
       : null;
 
   let dollarRatesAnnual, dollarRatesMonthly, dollarGrowthAnnual, dollarGrowthMonthly;
@@ -287,22 +310,27 @@ function runProjection(inp) {
   }
   turkeyInflationMonthly = Math.pow(1 + turkeyInflationAnnual, 1 / 12) - 1;
 
-  // Payment in USD — zero after the loan is paid off.
-  const monthlyPaymentUsd = monthlyPaymentTlArr.map((p, i) => p / dollarRatesMonthly[i + 1]);
-  // Annual TL payment for year y is the sum of that year's 12 monthly payments
-  // (so the partial year when the loan ends gets a partial amount).
-  const annualPaymentUsd = Array.from({ length: inp.years }, (_, y) => {
-    let tlSum = 0;
-    for (let m = y * 12; m < (y + 1) * 12; m++) tlSum += monthlyPaymentTlArr[m];
-    return tlSum / dollarRatesAnnual[y + 1];
-  });
-  const cumPaymentUsdAnnual = cumsum(annualPaymentUsd);
-  const cumPaymentUsdMonthly = cumsum(monthlyPaymentUsd);
+  // ---- Real-USD conversion rate.
+  // `dollar_rates_*` stay nominal (TL/USD) for output. For TL→USD conversion
+  // we use `fxConv*` instead: when `deflate_dollar_by_us_inflation` is on it
+  // is the nominal rate multiplied by the US-CPI deflator, so dividing TL by
+  // it yields *real* (today's-purchasing-power) USD. Real USD = TL / nominalFX
+  // / (1+usInf)^t = TL / (nominalFX·(1+usInf)^t). The deflator is 1 at t=0, so
+  // every USD series stays consistent and the toggle now means one thing.
+  const usInfAnnual = inp.deflate_dollar_by_us_inflation ? (inp.usa_inflation ?? 0) / 100 : 0;
+  const usInfMonthly = Math.pow(1 + usInfAnnual, 1 / 12) - 1;
+  const fxConvAnnual = inp.deflate_dollar_by_us_inflation
+    ? dollarRatesAnnual.map((fx, y) => fx * Math.pow(1 + usInfAnnual, y))
+    : dollarRatesAnnual;
+  const fxConvMonthly = inp.deflate_dollar_by_us_inflation
+    ? dollarRatesMonthly.map((fx, m) => fx * Math.pow(1 + usInfMonthly, m))
+    : dollarRatesMonthly;
 
   // Remaining loan balance per month (standard amortization), nominal TL.
   // Uses the per-month rate (constant in flat mode, year-step in yearly mode)
-  // and the per-month payment we already built above. After loan_months the
-  // balance stays exactly 0.
+  // and the per-month regular payment built above. After loan_months the
+  // balance stays exactly 0. The prepayment lump lands on its year boundary,
+  // mirroring the payment-building loop, so the two stay consistent.
   const remainingLoanTlMonthly = new Array(nMonths + 1);
   remainingLoanTlMonthly[0] = loan;
   for (let m = 1; m <= nMonths; m++) {
@@ -314,10 +342,30 @@ function runProjection(inp) {
     } else {
       remainingLoanTlMonthly[m] = 0;
     }
+    if (prepayActive && m === prepayMonth) {
+      remainingLoanTlMonthly[m] = Math.max(0, remainingLoanTlMonthly[m] - prepayApplied);
+    }
   }
   const remainingLoanTlYearly = Array.from({ length: inp.years + 1 }, (_, y) => remainingLoanTlMonthly[y * 12]);
-  const remainingLoanUsdMonthly = div(remainingLoanTlMonthly, dollarRatesMonthly);
-  const remainingLoanUsdYearly = div(remainingLoanTlYearly, dollarRatesAnnual);
+  const remainingLoanUsdMonthly = div(remainingLoanTlMonthly, fxConvMonthly);
+  const remainingLoanUsdYearly = div(remainingLoanTlYearly, fxConvAnnual);
+
+  // Fold the prepayment lump into the payment array now that the balance
+  // series is built — so total_paid_tl and every USD payment/outlay series
+  // count it as cash actually spent in the prepayment month.
+  if (prepayActive) monthlyPaymentTlArr[prepayMonth] += prepayApplied;
+
+  // Payment in USD — zero after the loan is paid off.
+  const monthlyPaymentUsd = monthlyPaymentTlArr.map((p, i) => p / fxConvMonthly[i + 1]);
+  // Annual TL payment for year y is the sum of that year's 12 monthly payments
+  // (so the partial year when the loan ends gets a partial amount).
+  const annualPaymentUsd = Array.from({ length: inp.years }, (_, y) => {
+    let tlSum = 0;
+    for (let m = y * 12; m < (y + 1) * 12; m++) tlSum += monthlyPaymentTlArr[m];
+    return tlSum / fxConvAnnual[y + 1];
+  });
+  const cumPaymentUsdAnnual = cumsum(annualPaymentUsd);
+  const cumPaymentUsdMonthly = cumsum(monthlyPaymentUsd);
 
   const initialNoncreditUsd = inp.initial_noncredit_amount_tl / inp.start_dollar_tl;
   // One-time closing cost on purchase (tapu harcı + komisyon + taşınma):
@@ -340,8 +388,8 @@ function runProjection(inp) {
   });
   const houseTlYearly = houseTlPaths.annual;
   const houseTlMonthly = houseTlPaths.monthly;
-  const houseUsdYearly = div(houseTlYearly, dollarRatesAnnual);
-  const houseUsdMonthly = div(houseTlMonthly, dollarRatesMonthly);
+  const houseUsdYearly = div(houseTlYearly, fxConvAnnual);
+  const houseUsdMonthly = div(houseTlMonthly, fxConvMonthly);
 
   // Selling cost (komisyon + masraflar) — what the seller pays at exit.
   // Net sale value = house_value × (1 − sell_pct).
@@ -365,8 +413,18 @@ function runProjection(inp) {
   }
   rentTlMonthly.push(rentTlYearly[rentTlYearly.length - 1] / 12);
 
-  const rentUsdYearly = div(rentTlYearly, dollarRatesAnnual);
-  const rentUsdMonthly = div(rentTlMonthly, dollarRatesMonthly);
+  // Rent-it-out: when the buyer lets the property instead of living in it,
+  // the rent line stops being "rent you avoid paying" and becomes "net rental
+  // income you receive" — gross rent reduced by vacancy and income tax. The
+  // factor is 1 in the normal live-in case, so every downstream series
+  // (cum_rent, total_credit_minus_rent, net_buy_position, breakeven) is
+  // unchanged unless `rent_it_out` is on.
+  const rentalNetFactor = inp.rent_it_out
+    ? Math.max(0, 1 - (inp.vacancy_rate ?? 0) / 100) *
+      Math.max(0, 1 - (inp.rental_income_tax_rate ?? 0) / 100)
+    : 1;
+  const rentUsdYearly = div(rentTlYearly, fxConvAnnual).map(x => x * rentalNetFactor);
+  const rentUsdMonthly = div(rentTlMonthly, fxConvMonthly).map(x => x * rentalNetFactor);
   // prefixSum so that cumRent[i] = rent paid through period i, with [0] = 0.
   // Yearly sampled from monthly for cross-resolution consistency.
   const cumRentUsdMonthly = prefixSum(rentUsdMonthly);
@@ -390,8 +448,8 @@ function runProjection(inp) {
     for (let j = 0; j < 12; j++) carryingTlMonthly.push(carryingTlYearly[i] / 12);
   }
   carryingTlMonthly.push(carryingTlYearly[carryingTlYearly.length - 1] / 12);
-  const carryingUsdYearly = div(carryingTlYearly, dollarRatesAnnual);
-  const carryingUsdMonthly = div(carryingTlMonthly, dollarRatesMonthly);
+  const carryingUsdYearly = div(carryingTlYearly, fxConvAnnual);
+  const carryingUsdMonthly = div(carryingTlMonthly, fxConvMonthly);
   const cumCarryingUsdMonthly = prefixSum(carryingUsdMonthly);
   const cumCarryingUsdYearly = Array.from(
     { length: inp.years + 1 }, (_, y) => cumCarryingUsdMonthly[y * 12],
@@ -423,10 +481,10 @@ function runProjection(inp) {
 
     if (inp.salary_currency === "EUR") salariesUsdYearly = scale(sameCurrencyYearly, inp.euro_dollar_rate);
     else if (inp.salary_currency === "USD") salariesUsdYearly = [...sameCurrencyYearly];
-    else if (inp.salary_currency === "TL") salariesUsdYearly = div(sameCurrencyYearly, dollarRatesAnnual);
+    else if (inp.salary_currency === "TL") salariesUsdYearly = div(sameCurrencyYearly, fxConvAnnual);
 
     salariesUsdMonthly = monthlyFromYearlySalary(
-      sameCurrencyYearly, inp.months_to_increase, dollarRatesMonthly, inp.euro_dollar_rate, inp.salary_currency,
+      sameCurrencyYearly, inp.months_to_increase, fxConvMonthly, inp.euro_dollar_rate, inp.salary_currency,
     );
 
     const salY = salariesUsdYearly.slice(1);

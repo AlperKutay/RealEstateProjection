@@ -234,6 +234,9 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
   const houseM = form.value_of_house_tl / 1_000_000;
   const downM = form.initial_noncredit_amount_tl / 1_000_000;
   const loan = form.value_of_house_tl - form.initial_noncredit_amount_tl;
+  const marketSet = form.market_value_tl != null && form.market_value_tl > 0;
+  const marketM = marketSet ? form.market_value_tl / 1_000_000 : 0;
+  const marketDelta = marketSet ? form.market_value_tl - form.value_of_house_tl : 0;
 
   const tabs = [
     { id: "house", label: t("tab_house"), icon: "1" },
@@ -268,6 +271,17 @@ function FormTabs({ form, setForm, assetInfo, supportedAssets, selectedAssets, s
             <Field label={t("f_value")} helpText={t("f_value_help")} hint={<><strong>{fmtTL(form.value_of_house_tl)}</strong></>}>
               <NumInput value={houseM} step={0.05} min={0.1} unit={t("f_value_unit")}
                 onChange={(v) => setF({ value_of_house_tl: Math.round(v * 1_000_000) })} />
+            </Field>
+            <Field
+              label={t("f_market_value")}
+              helpText={t("f_market_value_help")}
+              hint={marketSet
+                ? <><strong>{fmtTL(form.market_value_tl)}</strong>
+                    {marketDelta !== 0 ? <> ({marketDelta > 0 ? "+" : ""}{(marketDelta / 1_000_000).toFixed(2)}M ₺ {t("f_market_value_vs")})</> : null}</>
+                : <span style={{ color: "var(--ink-mute)" }}>{t("f_market_value_off")}</span>}
+            >
+              <NumInput value={marketM} step={0.05} min={0} unit={t("f_value_unit")}
+                onChange={(v) => setF({ market_value_tl: v > 0 ? Math.round(v * 1_000_000) : 0 })} />
             </Field>
             <Field label={t("f_down")} helpText={t("f_down_help")} hint={<><strong>{fmtTL(form.initial_noncredit_amount_tl)}</strong></>}>
               <NumInput value={downM} step={0.05} min={0} unit={t("f_down_unit")}

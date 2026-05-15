@@ -54,8 +54,16 @@ export interface ProjectionResult {
   buy_transaction_cost_tl: number;
   /** Buy-side transaction cost in USD. */
   buy_transaction_cost_usd: number;
-  /** House value at t=0 in USD. */
+  /** House value at t=0 in USD — equals market value (matches the chart's t=0). */
   value_of_house_usd: number;
+  /** What the buyer paid (drives loan + buy-side tx). TRY. */
+  purchase_price_tl: number;
+  /** What the buyer paid, converted to USD at t=0. */
+  purchase_price_usd: number;
+  /** Real / market value the house is worth (drives appreciation + sale). TRY. */
+  market_value_tl: number;
+  /** Real / market value, converted to USD at t=0. */
+  market_value_usd: number;
 
   // --- Effective rates (after deflation toggles), as fractions or % per engine ---
   effective_dollar_growth_annual: number;

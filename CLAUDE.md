@@ -64,6 +64,22 @@ assets.json        {supported_assets: [...], data: {SYM: {average_growth,
 python -m http.server 8000     # any static server works
 ```
 
+## Deploying
+
+GitHub Pages serves the repo root of `master` directly — there is no
+build, no `gh-pages` branch, no Actions deploy step. Pushing to
+`master` is the deploy. The CI workflow under `.github/workflows/ci.yml`
+only runs the Node test suite; it doesn't publish anything.
+
+- Live URL: `https://alperkutay.github.io/RealEstateProjection/`.
+- Remote: `origin` → `github.com/AlperKutay/RealEstateProjection`.
+- Because everything is static + CDN-loaded, deploys go live within a
+  minute or two of `git push`. Hard-refresh (Ctrl+F5) to bust the
+  browser cache when iterating.
+- Don't add a `CNAME` file or change Pages settings without checking —
+  the long-term plan (per ROADMAP Phase 6) is to move this content
+  under `alalimmi.com`, but that hasn't happened yet.
+
 ## Adding a new chart view
 
 1. If you need a new series, add the field to the return object in
@@ -118,6 +134,14 @@ python -m http.server 8000     # any static server works
   `transaction_cost_sell_pct`) all default to 0 via `?? 0` in the engine.
   The current React UI doesn't expose them as inputs yet — engine output
   for those series will be zeros until presets/forms wire them up.
+- `value_of_house_tl` is the purchase price — drives the loan amount,
+  down-payment math, and buy-side transaction cost. `market_value_tl` is
+  the *real* / appraisal value — drives the house-value chart, sale
+  proceeds, net-buy-position, and the % carrying costs (property tax,
+  maintenance). When `market_value_tl` is omitted, null, or 0, the engine
+  falls back to `value_of_house_tl`, so older presets / scenarios behave
+  exactly as before. The result also echoes both as `purchase_price_tl/usd`
+  and `market_value_tl/usd`.
 
 ## What to NOT do
 

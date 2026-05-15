@@ -71,7 +71,13 @@ window.I18N = {
 
     f_value: "Ev değeri",
     f_value_unit: "M ₺",
-    f_value_help: "Almayı düşündüğünüz konutun bugünkü değeri, milyon TL olarak.",
+    f_value_help: "Ödeyeceğiniz fiyat (kontrat tutarı). Kredi ve peşinat bu tutardan hesaplanır. Evin gerçek piyasa değerinden farklıysa aşağıdaki alanı doldurun.",
+
+    f_market_value: "Gerçek piyasa değeri",
+    f_market_value_unit: "M ₺",
+    f_market_value_help: "Evin bugünkü gerçek piyasa değeri — kredi ve peşinatla ilgisi yok. Ev değeri grafiği, ileride satılırsa eline geçecek tutar ve al-sat denge hesabı bu değerden büyür. Boş bırakılırsa ev değeri kullanılır.",
+    f_market_value_off: "= Ev değeri",
+    f_market_value_vs: "vs ev değeri",
 
     f_down: "Peşinat",
     f_down_unit: "M ₺",
@@ -424,7 +430,12 @@ window.I18N = {
     f_interest_help: "Bank's monthly mortgage interest. 2026 average ~2.7%.",
     f_value: "Home value",
     f_value_unit: "M ₺",
-    f_value_help: "Current value of the home you're considering, in millions of TL.",
+    f_value_help: "Price you'll pay (contract amount). Loan and down payment are derived from this. If the real market value differs, fill in the next field.",
+    f_market_value: "Real market value",
+    f_market_value_unit: "M ₺",
+    f_market_value_help: "The home's actual market value today — separate from the price you paid. The home-value chart, future sale proceeds, and net buy-vs-rent position all grow from this. Leave blank to use the purchase price.",
+    f_market_value_off: "= Home value",
+    f_market_value_vs: "vs home value",
     f_down: "Down payment",
     f_down_unit: "M ₺",
     f_down_help: "Cash you'll pay upfront, not part of the loan.",

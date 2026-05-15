@@ -859,6 +859,9 @@ function SeriesGlossary({ def, result, t, form }) {
 // ---------------- Details accordion ----------------
 
 function Details({ result, form, t }) {
+  const marketDiffers = result.market_value_tl != null
+    && result.purchase_price_tl != null
+    && result.market_value_tl !== result.purchase_price_tl;
   const rows = [
     [t("f_years"), form.years + " " + t("f_years_unit")],
     [t("f_interest"), form.interest_rate.toFixed(2) + " %"],
@@ -869,7 +872,12 @@ function Details({ result, form, t }) {
     ["USD/TL Y" + form.years, result.dollar_rates_annual.at(-1).toFixed(2) + " ₺"],
     [t("f_dollar_growth"), (result.effective_dollar_growth_annual * 100).toFixed(2) + " %"],
     [t("f_tr_inflation"), (result.effective_turkey_inflation_annual * 100).toFixed(2) + " %"],
-    [t("f_value") + " (USD bugün)", fmtUSD(result.value_of_house_usd)],
+    ...(marketDiffers
+      ? [
+          [t("f_value") + " (USD bugün)", fmtUSD(result.purchase_price_usd)],
+          [t("f_market_value") + " (USD bugün)", fmtUSD(result.market_value_usd)],
+        ]
+      : [[t("f_value") + " (USD bugün)", fmtUSD(result.value_of_house_usd)]]),
     [t("f_value") + " Y" + form.years + " (USD)", fmtUSD(result.value_of_house_usd_yearly.at(-1))],
     [t("f_rent") + " Y" + form.years + " (USD)", fmtUSD(result.cumulative_rent_price_usd_yearly.at(-1))],
   ];

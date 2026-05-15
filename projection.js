@@ -208,6 +208,17 @@ function runProjection(inp) {
   // Loan
   const loan = inp.value_of_house_tl - inp.initial_noncredit_amount_tl;
 
+  // Purchase price vs market value. `value_of_house_tl` is what you paid
+  // (drives loan, down payment, buy-side transaction cost). `market_value_tl`
+  // is the real/appraisal value the house is *worth* — that's what should
+  // grow over time on the chart and what you'd sell for. They diverge when
+  // the buyer got a deal (or overpaid). Default to purchase price so existing
+  // presets/tests are unchanged.
+  const marketValueTl =
+    inp.market_value_tl != null && inp.market_value_tl > 0
+      ? inp.market_value_tl
+      : inp.value_of_house_tl;
+
   // Early prepayment: an optional lump sum paid on a year boundary. It is
   // applied to the balance *before* that year's re-amortization, so it lowers
   // every later installment (it shortens cost, not the term). The amount is
@@ -382,7 +393,10 @@ function runProjection(inp) {
   );
 
   // House value — grows by TR inflation (flat scalar, per-year array, or random walk).
-  const houseTlPaths = buildCompoundPaths(inp.value_of_house_tl, inp, {
+  // Starts from market value, NOT purchase price — the appreciation chart, sale
+  // proceeds, net-buy-position, and carrying costs (% of house value) all run
+  // off the real value of the property.
+  const houseTlPaths = buildCompoundPaths(marketValueTl, inp, {
     mode: trMode, perYear: trPerYear,
     flatPct: inp.turkey_inflation ?? 0, allowRandom: true,
   });
@@ -536,7 +550,11 @@ function runProjection(inp) {
     initial_noncredit_amount_usd: initialNoncreditUsd,
     buy_transaction_cost_tl: buyTxTl,
     buy_transaction_cost_usd: buyTxUsd,
-    value_of_house_usd: inp.value_of_house_tl / inp.start_dollar_tl,
+    value_of_house_usd: marketValueTl / inp.start_dollar_tl,
+    purchase_price_tl: inp.value_of_house_tl,
+    purchase_price_usd: inp.value_of_house_tl / inp.start_dollar_tl,
+    market_value_tl: marketValueTl,
+    market_value_usd: marketValueTl / inp.start_dollar_tl,
     effective_dollar_growth_annual: dollarGrowthAnnual,
     effective_dollar_growth_monthly: dollarGrowthMonthly,
     effective_turkey_inflation_annual: turkeyInflationAnnual,

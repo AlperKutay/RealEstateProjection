@@ -642,3 +642,93 @@ test("rent-it-out scales the rent series by (1-vacancy)(1-tax)", () => {
       `year ${y}: net rent should be gross × ${factor}`);
   }
 });
+
+// --- Market value vs purchase price --------------------------------
+
+test("market_value_tl omitted defaults to value_of_house_tl (no behavior change)", () => {
+  const a = runProjection(baseInput());
+  const b = runProjection(baseInput({ market_value_tl: 0 }));   // 0 → not set
+  const c = runProjection(baseInput({ market_value_tl: null })); // null → not set
+  assert.ok(Math.abs(a.value_of_house_usd_yearly[10] - b.value_of_house_usd_yearly[10]) < 1e-9);
+  assert.ok(Math.abs(a.value_of_house_usd_yearly[10] - c.value_of_house_usd_yearly[10]) < 1e-9);
+  assert.ok(Math.abs(a.loan_amount_tl - b.loan_amount_tl) < 1e-9);
+});
+
+test("market_value_tl set: loan/down/buy-tx stay on purchase price; chart grows from market value", () => {
+  const purchase = 2_100_000;
+  const market = 4_200_000; // bought below market — house "really" worth 2x
+  const baseFlat = baseInput({
+    value_of_house_tl: purchase,
+    market_value_tl: market,
+    turkey_inflation: 0,         // keep TL flat so the [0] is exact
+    dollar_growth_rate: 0,       // keep FX flat
+    transaction_cost_buy_pct: 6,
+    transaction_cost_sell_pct: 0,
+    annual_property_tax_rate: 0, // isolate the house-value chart
+    annual_maintenance_rate: 0,
+    monthly_hoa_tl: 0,
+    annual_dask_tl: 0,
+  });
+  const r = runProjection(baseFlat);
+
+  // Loan, down payment, buy-tx are based on PURCHASE price (what you actually paid).
+  assert.equal(r.loan_amount_tl, purchase - baseFlat.initial_noncredit_amount_tl);
+  assert.equal(r.buy_transaction_cost_tl, purchase * 0.06);
+  assert.equal(r.purchase_price_tl, purchase);
+  assert.equal(r.market_value_tl, market);
+
+  // House value series starts from MARKET value, not purchase.
+  const expectedStartUsd = market / baseFlat.start_dollar_tl;
+  assert.ok(Math.abs(r.value_of_house_usd_yearly[0] - expectedStartUsd) < 1e-9);
+  assert.ok(Math.abs(r.value_of_house_usd_monthly[0] - expectedStartUsd) < 1e-9);
+  assert.ok(Math.abs(r.value_of_house_usd - expectedStartUsd) < 1e-9,
+    "scalar value_of_house_usd should match chart t=0 (market value)");
+  // Flat inflation → series stays at market value end-to-end.
+  assert.ok(Math.abs(r.value_of_house_usd_yearly[10] - expectedStartUsd) < 1e-9);
+});
+
+test("market_value > purchase: net_buy_position starts ahead by the spread (net of buy tx)", () => {
+  // With market > purchase, you bought "below value" — so even at t=0, if you
+  // sold immediately you'd recover more than the loan + down + buy tx.
+  const purchase = 2_000_000;
+  const market = 3_000_000;
+  const sameBase = {
+    ...baseInput({
+      value_of_house_tl: purchase,
+      turkey_inflation: 0, dollar_growth_rate: 0,
+      transaction_cost_buy_pct: 0, transaction_cost_sell_pct: 0,
+      annual_property_tax_rate: 0, annual_maintenance_rate: 0,
+      monthly_hoa_tl: 0, annual_dask_tl: 0, initial_monthly_rent_tl: 0,
+    }),
+  };
+  const same = runProjection(sameBase);
+  const deal = runProjection({ ...sameBase, market_value_tl: market });
+
+  // At t=0: with market == purchase, net buy position equals -(down payment in USD)
+  // (you spent the down payment, sale value barely covers the loan).
+  // With market > purchase, net position is higher by exactly (market - purchase)/fx.
+  const spreadUsd = (market - purchase) / sameBase.start_dollar_tl;
+  assert.ok(Math.abs(deal.net_buy_position_usd_monthly[0] - same.net_buy_position_usd_monthly[0] - spreadUsd) < 1e-6);
+});
+
+test("market_value_tl: carrying costs (property tax, maintenance) scale with market value", () => {
+  const purchase = 2_000_000;
+  const market = 4_000_000;
+  const cfg = {
+    ...baseInput({
+      value_of_house_tl: purchase,
+      turkey_inflation: 0, dollar_growth_rate: 0,
+      annual_property_tax_rate: 0.5,  // 0.5% of house value
+      annual_maintenance_rate: 1.0,   // 1.0% of house value
+      monthly_hoa_tl: 0, annual_dask_tl: 0,
+    }),
+  };
+  const same = runProjection(cfg);
+  const deal = runProjection({ ...cfg, market_value_tl: market });
+
+  // Carrying cost scales with the value the chart shows. Market = 2× purchase
+  // → property tax + maintenance line is 2× higher.
+  const ratio = deal.ownership_cost_usd_yearly[1] / same.ownership_cost_usd_yearly[1];
+  assert.ok(Math.abs(ratio - market / purchase) < 1e-6,
+    `ownership cost ratio should be ${market / purchase}, got ${ratio}`);
+});

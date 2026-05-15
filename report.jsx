@@ -848,9 +848,15 @@ function inputRows(form, result, t, lang) {
     [t("f_loan_term_years"), `${form.loan_term_years ?? form.years} ${t("f_years_unit")}`],
     [t("f_interest"), `${(form.interest_rate ?? 0).toFixed(2)} %`],
     [t("f_value"), fmtTLFull_R(form.value_of_house_tl)],
+  ];
+  if (form.market_value_tl != null && form.market_value_tl > 0
+      && form.market_value_tl !== form.value_of_house_tl) {
+    loan.push([t("f_market_value"), fmtTLFull_R(form.market_value_tl)]);
+  }
+  loan.push(
     [t("f_down"), fmtTLFull_R(form.initial_noncredit_amount_tl)],
     [t("f_loan_amount"), fmtTLFull_R(loanAmount)],
-  ];
+  );
   groups.push({ title: tt(t, "rpt_group_loan", lang === "tr" ? "Kredi" : "Loan"), rows: loan });
 
   const macro = [

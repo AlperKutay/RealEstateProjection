@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "as_of": "2026-09-27",
+    "as_of": "2026-10-04",
     "note": "Yearly returns and current USD prices (use_months=False rows from cached_returns.csv). Refresh by running: python stock_market_helper.py --asset <SYMBOL> on the backend, then re-export."
   },
   "supported_assets": [
@@ -15,36 +15,36 @@
   ],
   "data": {
     "XAUUSD": {
-      "average_growth": 12.53,
-      "current_price": 4321.2
+      "average_growth": 12.39,
+      "current_price": 4162.3
     },
     "XAGUSD": {
-      "average_growth": 15.28,
-      "current_price": 64.8
+      "average_growth": 15.04,
+      "current_price": 60.42
     },
     "BTC": {
-      "average_growth": 175.96,
-      "current_price": 84909.45
+      "average_growth": 176.0,
+      "current_price": 85260.01
     },
     "ETH": {
-      "average_growth": 92.53,
-      "current_price": 2710.06
+      "average_growth": 92.49,
+      "current_price": 2700.61
     },
     "NASDAQ": {
-      "average_growth": 14.47,
-      "current_price": 27068.72
+      "average_growth": 14.48,
+      "current_price": 27190.86
     },
     "S&P": {
-      "average_growth": 9.66,
-      "current_price": 7743.41
+      "average_growth": 9.65,
+      "current_price": 7722.72
     },
     "XU100": {
-      "average_growth": 8.24,
-      "current_price": 263.53
+      "average_growth": 7.99,
+      "current_price": 249.81
     },
     "XU30": {
-      "average_growth": 8.21,
-      "current_price": 325.79
+      "average_growth": 7.94,
+      "current_price": 309.57
     }
   }
 }
